@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京都6区 不動産相場分析ダッシュボード</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #051F32;
+            --primary-light: #0A3A5C;
+            --primary-lighter: #0F4C75;
+            --accent-gold: #C9A962;
+            --accent-silver: #A8A8A8;
+            --accent-bronze: #8B7355;
+            --secondary: #2D8B7A;
+            --info: #4A6FA5;
+            --danger: #C75B5B;
+            --bg-main: #F7F8FA;
+            --bg-card: #FFFFFF;
+            --border: #E8EAED;
+            --text-primary: #1E2A38;
+            --text-secondary: #5C6B7A;
+            --shadow: 0 2px 8px rgba(5, 31, 50, 0.08);
+            --shadow-lg: 0 10px 25px -5px rgba(5, 31, 50, 0.15);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg-main); color: var(--text-primary); line-height: 1.6; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        /* ヘッダーナビゲーション */
+        header { background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .header-inner { max-width: 1400px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; height: 56px; }
+        .header-brand { display: flex; align-items: center; }
+        .header-brand-main { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+        .header-brand-sub { font-size: 0.8rem; font-weight: 400; color: var(--text-secondary); }
+        .header-nav { display: flex; align-items: center; gap: 32px; }
+        .nav-link { font-size: 0.9rem; font-weight: 400; color: var(--text-secondary); cursor: pointer; padding: 16px 0; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .nav-link:hover { color: var(--text-primary); }
+        .nav-link.active { color: var(--text-primary); font-weight: 500; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .header-divider { width: 1px; height: 24px; background: var(--border); }
+        .header-user { width: 32px; height: 32px; border-radius: 50%; background: var(--text-secondary); display: flex; align-items: center; justify-content: center; }
+        .header-user svg { width: 18px; height: 18px; fill: #fff; }
+
+        /* ハンバーガーメニュー */
+        .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 8px; }
+        .hamburger span { display: block; width: 22px; height: 2px; background: var(--text-primary); transition: all 0.3s; }
+        .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+        /* モバイルメニュー */
+        .mobile-menu { display: none; position: absolute; top: 56px; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
+        .mobile-menu.active { display: block; }
+        .mobile-nav-link { display: block; padding: 14px 24px; color: var(--text-secondary); font-size: 0.95rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; }
+        .mobile-nav-link:hover { background: var(--bg-main); }
+        .mobile-nav-link.active { color: var(--text-primary); font-weight: 500; background: var(--bg-main); }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 25px; }
+        .stat-card { background: var(--bg-card); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); border-left: 4px solid var(--primary); }
+        .stat-card.secondary { border-left-color: var(--secondary); }
+        .stat-card.accent { border-left-color: var(--accent-gold); }
+        .stat-card.info { border-left-color: var(--info); }
+        .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; }
+        .stat-unit { font-size: 0.85rem; color: var(--text-secondary); font-weight: 400; }
+        .stat-detail { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; line-height: 1.8; }
+
+        .card { background: var(--bg-card); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border); color: var(--primary); }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+        .chart-container { position: relative; height: 350px; }
+
+        .filter-section { background: var(--bg-card); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
+        .filter-title { font-weight: 600; margin-bottom: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        .filter-title-icon { font-size: 1.2rem; }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+        .filter-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; }
+        .filter-group select, .filter-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; background: white; }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(5, 31, 50, 0.1); }
+
+        /* アコーディオンフィルター */
+        .filter-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+        .filter-header .filter-title { margin-bottom: 0; }
+        .filter-toggle { display: none; width: 24px; height: 24px; border-radius: 50%; background: var(--bg-main); border: 1px solid var(--border); align-items: center; justify-content: center; transition: all 0.3s; }
+        .filter-toggle svg { width: 14px; height: 14px; fill: var(--text-secondary); transition: transform 0.3s; }
+        .filter-section.collapsed .filter-toggle svg { transform: rotate(-90deg); }
+        .filter-content { overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease; }
+        .filter-section.collapsed .filter-content { max-height: 0 !important; opacity: 0; margin-top: 0 !important; }
+        .filter-section:not(.collapsed) .filter-content { opacity: 1; margin-top: 16px; }
+        
+        @media (max-width: 768px) {
+            .filter-toggle { display: flex; }
+            .filter-header { padding-bottom: 0; }
+            .filter-section.collapsed { padding-bottom: 20px; }
+        }
+
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 0.9rem; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: white; }
+
+        .table-container { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--primary); color: white; font-weight: 600; font-size: 0.8rem; white-space: nowrap; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background: rgba(5, 31, 50, 0.03); }
+        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 0.8rem; }
+        .rank-1 { background: var(--accent-gold); color: var(--primary); }
+        .rank-2 { background: var(--accent-silver); color: white; }
+        .rank-3 { background: var(--accent-bronze); color: white; }
+        .rank-other { background: var(--bg-main); color: var(--text-secondary); }
+        .company-link { color: var(--primary); cursor: pointer; text-decoration: none; font-weight: 500; }
+        .company-link:hover { text-decoration: underline; }
+        .text-right { text-align: right; }
+        .value-highlight { color: var(--primary); font-weight: 600; }
+
+        .ranking-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .ranking-tab { padding: 8px 16px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .ranking-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .seller-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; padding: 20px; background: linear-gradient(135deg, rgba(201, 169, 98, 0.12) 0%, rgba(201, 169, 98, 0.06) 100%); border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(201, 169, 98, 0.25); }
+        .seller-stat { text-align: center; }
+        .seller-stat-value { font-size: 1.5rem; font-weight: 700; }
+        .seller-stat-label { font-size: 0.75rem; color: var(--text-secondary); }
+
+        .district-table th { background: var(--bg-main); color: var(--text-secondary); font-size: 0.75rem; }
+
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+        .pagination button { padding: 8px 14px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+        .pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+        .pagination button.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .results-count { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .results-count strong { color: var(--primary); }
+        .export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .export-btn:hover { background: #246b5e; }
+        .sort-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; background: white; }
+
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+        .status-active { background: rgba(45, 139, 122, 0.15); color: var(--secondary); }
+        .status-pending { background: rgba(201, 169, 98, 0.2); color: #8B7355; }
+        .status-sold { background: rgba(199, 91, 91, 0.15); color: var(--danger); }
+
+        .time-filter-buttons { display: flex; gap: 8px; margin-bottom: 20px; }
+        .time-btn { padding: 10px 20px; border: 2px solid var(--border); background: white; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+        .time-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
+        .time-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+
+        .update-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
+        .update-price-down { background: rgba(45, 139, 122, 0.1); color: var(--secondary); }
+        .update-price-up { background: rgba(199, 91, 91, 0.1); color: var(--danger); }
+        .update-status { background: rgba(74, 111, 165, 0.1); color: var(--info); }
+
+        footer { text-align: center; padding: 24px; color: var(--text-secondary); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 40px; }
+        .back-to-top-btn { display: none; position: fixed; bottom: 30px; right: 30px; padding: 12px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 1000; }
+        .back-to-top-btn:hover { background: var(--primary-light); }
+
+        /* フィルター通知バッジ */
+        .filter-active-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(201, 169, 98, 0.15); border: 1px solid var(--accent-gold); border-radius: 20px; font-size: 0.8rem; color: var(--accent-bronze); margin-bottom: 16px; }
+        .filter-active-badge .count { font-weight: 700; color: var(--primary); }
+
+        /* ローディング */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* レスポンシブ */
+        @media (max-width: 1024px) {
+            .header-nav { display: none; }
+            .hamburger { display: flex; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .header-brand-sub { display: none; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .filter-grid { grid-template-columns: 1fr; }
+            .chart-container { height: 280px; }
+            th, td { padding: 8px 10px; font-size: 0.8rem; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+
+        /* 期間表示切替 */
+        .period-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        .period-unit-selector label,
+        .period-value-selector label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .period-unit-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .period-unit-btn {
+            padding: 10px 18px;
+            border: 2px solid var(--border);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .period-unit-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .period-unit-btn.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+        .period-value-selector select,
+        .period-value-selector input[type="date"] {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+            min-width: 200px;
+        }
+        .period-value-selector select:focus,
+        .period-value-selector input[type="date"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(5, 31, 50, 0.1);
+        }
+        .period-display {
+            padding: 10px 16px;
+            background: rgba(201, 169, 98, 0.12);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .period-display-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .period-display-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        @media (max-width: 768px) {
+            .period-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .period-unit-buttons {
+                flex-wrap: wrap;
+            }
+            .period-unit-btn {
+                flex: 1;
+                min-width: 70px;
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <span class="header-brand-main">レインズ<br>ダッシュボード</span>
+            </div>
+            <nav class="header-nav">
+                <span class="nav-link active" data-section="overview">在庫統計</span>
+                <span class="nav-link" data-section="seller">商号別ランキング</span>
+                <span class="nav-link" data-section="propertyList">在庫物件リスト</span>
+                <span class="nav-link" data-section="soldList">成約統計</span>
+                <span class="nav-link" data-section="updateList">成約済み物件・更新物件リスト</span>
+            </nav>
+            <div class="header-right">
+                <div class="hamburger" id="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="header-user">
+                    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </div>
+            </div>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-nav-link active" data-section="overview">在庫統計</div>
+            <div class="mobile-nav-link" data-section="seller">商号別ランキング</div>
+            <div class="mobile-nav-link" data-section="propertyList">在庫物件リスト</div>
+            <div class="mobile-nav-link" data-section="soldList">成約統計</div>
+            <div class="mobile-nav-link" data-section="updateList">成約済み物件・更新物件リスト</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 在庫統計セクション -->
+        <div id="overview" class="section active">
+            <!-- 在庫統計用フィルター -->
+            <div class="filter-section" id="stats-filter-section">
+                <div class="filter-header" onclick="toggleFilter('stats-filter-section')">
+                    <div class="filter-title">統計フィルター</div>
+                    <div class="filter-toggle">
+                        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                    </div>
+                </div>
+                <div class="filter-content">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label>取引態様</label>
+                            <select id="stats-filter-torihiki">
+                                <option value="">すべて</option>
+                                <option value="売主">売主</option>
+                                <option value="専任">専任</option>
+                                <option value="専属">専属</option>
+                                <option value="一般">一般</option>
+                                <option value="代理">代理</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>区</label>
+                            <select id="stats-filter-district">
+                                <option value="">全区</option>
+                                <option value="港区">港区</option>
+                                <option value="中央区">中央区</option>
+                                <option value="千代田区">千代田区</option>
+                                <option value="渋谷区">渋谷区</option>
+                                <option value="新宿区">新宿区</option>
+                                <option value="文京区">文京区</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>間取</label>
+                            <select id="stats-filter-layout">
+                                <option value="">すべて</option>
+                                <option value="1R">1R</option>
+                                <option value="1K">1K</option>
+                                <option value="1DK">1DK</option>
+                                <option value="1LDK">1LDK</option>
+                                <option value="2K">2K</option>
+                                <option value="2DK">2DK</option>
+                                <option value="2LDK">2LDK</option>
+                                <option value="3K">3K</option>
+                                <option value="3DK">3DK</option>
+                                <option value="3LDK">3LDK</option>
+                                <option value="4LDK">4LDK</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>価格（万円）</label>
+                            <select id="stats-filter-price">
+                                <option value="">すべて</option>
+                                <option value="0-5000">～5,000万円</option>
+                                <option value="5000-10000">5,000～10,000万円</option>
+                                <option value="10000-15000">10,000～15,000万円</option>
+                                <option value="15000-20000">15,000～20,000万円</option>
+                                <option value="20000-25000">20,000～25,000万円</option>
+                                <option value="25000-30000">25,000～30,000万円</option>
+                                <option value="30000-">30,000万円～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>専有面積（坪）</label>
+                            <select id="stats-filter-area">
+                                <option value="">すべて</option>
+                                <option value="0-10">～10坪</option>
+                                <option value="10-15">10～15坪</option>
+                                <option value="15-20">15～20坪</option>
+                                <option value="20-25">20～25坪</option>
+                                <option value="25-30">25～30坪</option>
+                                <option value="30-35">30～35坪</option>
+                                <option value="35-40">35～40坪</option>
+                                <option value="40-">40坪～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>築年数</label>
+                            <select id="stats-filter-age">
+                                <option value="">すべて</option>
+                                <option value="0-5">～5年</option>
+                                <option value="5-10">5～10年</option>
+                                <option value="10-15">10～15年</option>
+                                <option value="15-20">15～20年</option>
+                                <option value="20-25">20～25年</option>
+                                <option value="25-30">25～30年</option>
+                                <option value="30-">30年～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-primary" onclick="applyStatsFilter()">適用</button>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-outline" onclick="resetStatsFilter()">リセット</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- フィルター適用状態表示 -->
+            <div id="stats-filter-badge" class="filter-active-badge" style="display:none;">
+                フィルター適用中: <span class="count" id="stats-filtered-count">0</span>件 / 全<span id="stats-total-count">0</span>件
+            </div>
+
+            <div class="card">
+                <div class="card-title">統計サマリー</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">価格（万円）平均</div>
+                        <div class="stat-value" id="stat-price-avg">-</div>
+                        <div class="stat-detail" id="stat-price-detail">-</div>
+                    </div>
+                    <div class="stat-card secondary">
+                        <div class="stat-label">専有面積（坪）平均</div>
+                        <div class="stat-value" id="stat-area-avg">-</div>
+                        <div class="stat-detail" id="stat-area-detail">-</div>
+                    </div>
+                    <div class="stat-card accent">
+                        <div class="stat-label">坪単価（万円）平均</div>
+                        <div class="stat-value" id="stat-sqm-avg">-</div>
+                        <div class="stat-detail" id="stat-sqm-detail">-</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-label">物件数</div>
+                        <div class="stat-value"><span id="stat-count">-</span><span class="stat-unit">件</span></div>
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top:20px;">区別統計</div>
+                <div class="table-container" style="max-height:none;">
+                    <table class="district-table">
+                        <thead><tr><th>区</th><th class="text-right">物件数</th><th class="text-right">平均価格（万円）</th><th class="text-right">中央値価格（万円）</th><th class="text-right">平均面積（坪）</th></tr></thead>
+                        <tbody id="district-stats-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">価格分布</div>
+                    <div class="chart-container"><canvas id="priceDistChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">区別物件数</div>
+                    <div class="chart-container"><canvas id="districtChart"></canvas></div>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">専有面積（坪） vs 価格（全件）</div>
+                    <div class="chart-container"><canvas id="scatterAreaChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">築年数 vs 価格（全件）</div>
+                    <div class="chart-container"><canvas id="scatterAgeChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 売主物件セクション -->
+        <div id="seller" class="section">
+            <!-- 商号別ランキング用フィルター -->
+            <div class="filter-section" id="seller-filter-section">
+                <div class="filter-header" onclick="toggleFilter('seller-filter-section')">
+                    <div class="filter-title">フィルター</div>
+                    <div class="filter-toggle">
+                        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                    </div>
+                </div>
+                <div class="filter-content">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label>区</label>
+                            <select id="seller-filter-district">
+                                <option value="">全区</option>
+                                <option value="港区">港区</option>
+                                <option value="中央区">中央区</option>
+                                <option value="千代田区">千代田区</option>
+                                <option value="渋谷区">渋谷区</option>
+                                <option value="新宿区">新宿区</option>
+                                <option value="文京区">文京区</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>取引態様</label>
+                            <select id="seller-filter-torihiki">
+                                <option value="">すべて</option>
+                                <option value="売主">売主</option>
+                                <option value="専任">専任</option>
+                                <option value="専属">専属</option>
+                                <option value="一般">一般</option>
+                                <option value="代理">代理</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-primary" onclick="applySellerFilter()">適用</button>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-outline" onclick="resetSellerFilter()">リセット</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- フィルター適用状態表示 -->
+            <div id="seller-filter-badge" class="filter-active-badge" style="display:none;">
+                フィルター適用中: <span class="count" id="seller-filtered-count">0</span>件 / 全<span id="seller-total-count">0</span>件
+            </div>
+
+            <div class="seller-stats">
+                <div class="seller-stat"><div class="seller-stat-value" id="seller-company-count">-<span class="stat-unit">社</span></div><div class="seller-stat-label">対象物件を扱う商号数</div></div>
+                <div class="seller-stat"><div class="seller-stat-value" id="seller-total-amount">-<span class="stat-unit">億円</span></div><div class="seller-stat-label">対象物件総額</div></div>
+                <div class="seller-stat"><div class="seller-stat-value" id="seller-property-count">-<span class="stat-unit">件</span></div><div class="seller-stat-label">対象物件数</div></div>
+            </div>
+            <div class="charts-grid">
+                <div class="card"><div class="card-title" id="seller-total-chart-title">在庫物件総額 TOP15</div><div class="chart-container"><canvas id="sellerTotalChart"></canvas></div></div>
+                <div class="card"><div class="card-title" id="seller-count-chart-title">在庫物件数 TOP15</div><div class="chart-container"><canvas id="sellerCountChart"></canvas></div></div>
+            </div>
+            <div class="card">
+                <div class="card-title" id="seller-ranking-title">在庫物件 商号別詳細ランキング</div>
+                <div class="ranking-tabs">
+                    <button class="ranking-tab active" data-sort="total">在庫物件総額(億円) ▼</button>
+                    <button class="ranking-tab" data-sort="count">在庫物件数</button>
+                    <button class="ranking-tab" data-sort="avg">平均単価(万円)</button>
+                </div>
+                <div class="table-container"><table><thead><tr><th>順位</th><th>商号</th><th class="text-right">総額(億円)</th><th class="text-right">件数</th><th class="text-right">平均(万円)</th></tr></thead><tbody id="sellerRankingBody"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- 掲載物件リストセクション -->
+        <div id="propertyList" class="section">
+            <div class="filter-section" id="pl-filter-section">
+                <div class="filter-header" onclick="toggleFilter('pl-filter-section')">
+                    <div class="filter-title">フィルター</div>
+                    <div class="filter-toggle">
+                        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                    </div>
+                </div>
+                <div class="filter-content">
+                    <div class="filter-grid">
+                        <div class="filter-group"><label>区</label><select id="pl-filter-district"><option value="">全区</option><option value="港区">港区</option><option value="中央区">中央区</option><option value="千代田区">千代田区</option><option value="渋谷区">渋谷区</option><option value="新宿区">新宿区</option><option value="文京区">文京区</option></select></div>
+                        <div class="filter-group"><label>建物名</label><input type="text" id="pl-filter-building" placeholder="部分一致"></div>
+                        <div class="filter-group"><label>商号</label><input type="text" id="pl-filter-company" placeholder="部分一致"></div>
+                        <div class="filter-group">
+                            <label>間取</label>
+                            <select id="pl-filter-layout">
+                                <option value="">すべて</option>
+                                <option value="1R">1R</option>
+                                <option value="1K">1K</option>
+                                <option value="1DK">1DK</option>
+                                <option value="1LDK">1LDK</option>
+                                <option value="2K">2K</option>
+                                <option value="2DK">2DK</option>
+                                <option value="2LDK">2LDK</option>
+                                <option value="3K">3K</option>
+                                <option value="3DK">3DK</option>
+                                <option value="3LDK">3LDK</option>
+                                <option value="4LDK">4LDK</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>価格（万円）</label>
+                            <select id="pl-filter-price">
+                                <option value="">すべて</option>
+                                <option value="0-5000">～5,000万円</option>
+                                <option value="5000-10000">5,000～10,000万円</option>
+                                <option value="10000-15000">10,000～15,000万円</option>
+                                <option value="15000-20000">15,000～20,000万円</option>
+                                <option value="20000-25000">20,000～25,000万円</option>
+                                <option value="25000-30000">25,000～30,000万円</option>
+                                <option value="30000-">30,000万円～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>専有面積（坪）</label>
+                            <select id="pl-filter-area">
+                                <option value="">すべて</option>
+                                <option value="0-10">～10坪</option>
+                                <option value="10-15">10～15坪</option>
+                                <option value="15-20">15～20坪</option>
+                                <option value="20-25">20～25坪</option>
+                                <option value="25-30">25～30坪</option>
+                                <option value="30-35">30～35坪</option>
+                                <option value="35-40">35～40坪</option>
+                                <option value="40-">40坪～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>築年数</label>
+                            <select id="pl-filter-age">
+                                <option value="">すべて</option>
+                                <option value="0-5">～5年</option>
+                                <option value="5-10">5～10年</option>
+                                <option value="10-15">10～15年</option>
+                                <option value="15-20">15～20年</option>
+                                <option value="20-25">20～25年</option>
+                                <option value="25-30">25～30年</option>
+                                <option value="30-">30年～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group"><button class="btn btn-primary" onclick="applyPropertyFilter()">適用</button></div>
+                        <div class="filter-group"><button class="btn btn-outline" onclick="resetPropertyFilter()">リセット</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="results-count">
+                    <div>検索結果: <strong id="pl-result-count">0</strong>件 <span id="pl-filter-notice" style="color:var(--accent-gold);margin-left:12px;"></span></div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <select class="sort-select" id="pl-sort-select" onchange="sortPropertyList()">
+                            <option value="id-asc">物件番号 昇順</option>
+                            <option value="id-desc">物件番号 降順</option>
+                            <option value="price-asc">価格 安い順</option>
+                            <option value="price-desc">価格 高い順</option>
+                            <option value="area-asc">面積 小さい順</option>
+                            <option value="area-desc">面積 大きい順</option>
+                        </select>
+                        <button class="export-btn" onclick="exportPropertyCSV()">📥 CSV出力</button>
+                    </div>
+                </div>
+                <div class="table-container"><table><thead><tr><th>物件番号</th><th>区</th><th>建物名</th><th>階</th><th>間取</th><th class="text-right">価格</th><th class="text-right">面積</th><th class="text-right">築年</th><th>状況</th><th>商号</th></tr></thead><tbody id="propertyListBody"></tbody></table></div>
+                <div class="pagination" id="pl-pagination"></div>
+            </div>
+        </div>
+
+        <!-- 成約済み物件・更新物件リストセクション -->
+        <div id="updateList" class="section">
+            <!-- 成約済み物件リスト -->
+            <div class="card">
+                <div class="card-title">成約済み物件リスト - 掲載終了（成約済み）となった物件</div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※differences_master.csvの差分種別「削除」を成約済みとして表示しています</p>
+                
+                <!-- 成約済み物件リスト用フィルター -->
+                <div class="filter-section" id="sold-list-filter-section" style="margin-bottom:16px;box-shadow:none;padding:16px;background:var(--bg-main);">
+                    <div class="filter-header" onclick="toggleFilter('sold-list-filter-section')">
+                        <div class="filter-title" style="font-size:0.9rem;margin-bottom:0;">フィルター</div>
+                        <div class="filter-toggle">
+                            <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                        </div>
+                    </div>
+                    <div class="filter-content">
+                        <div class="filter-grid">
+                            <div class="filter-group"><label>区</label><select id="sold-list-filter-district"><option value="">全区</option><option value="港区">港区</option><option value="中央区">中央区</option><option value="千代田区">千代田区</option><option value="渋谷区">渋谷区</option><option value="新宿区">新宿区</option><option value="文京区">文京区</option></select></div>
+                            <div class="filter-group"><label>建物名</label><input type="text" id="sold-list-filter-building" placeholder="部分一致"></div>
+                            <div class="filter-group"><label>商号</label><input type="text" id="sold-list-filter-company" placeholder="部分一致"></div>
+                            <div class="filter-group">
+                                <label>間取</label>
+                                <select id="sold-list-filter-layout">
+                                    <option value="">すべて</option>
+                                    <option value="1R">1R</option>
+                                    <option value="1K">1K</option>
+                                    <option value="1DK">1DK</option>
+                                    <option value="1LDK">1LDK</option>
+                                    <option value="2K">2K</option>
+                                    <option value="2DK">2DK</option>
+                                    <option value="2LDK">2LDK</option>
+                                    <option value="3K">3K</option>
+                                    <option value="3DK">3DK</option>
+                                    <option value="3LDK">3LDK</option>
+                                    <option value="4LDK">4LDK</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>価格（万円）</label>
+                                <select id="sold-list-filter-price">
+                                    <option value="">すべて</option>
+                                    <option value="0-5000">～5,000万円</option>
+                                    <option value="5000-10000">5,000～10,000万円</option>
+                                    <option value="10000-15000">10,000～15,000万円</option>
+                                    <option value="15000-20000">15,000～20,000万円</option>
+                                    <option value="20000-25000">20,000～25,000万円</option>
+                                    <option value="25000-30000">25,000～30,000万円</option>
+                                    <option value="30000-">30,000万円～</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>専有面積（坪）</label>
+                                <select id="sold-list-filter-area">
+                                    <option value="">すべて</option>
+                                    <option value="0-10">～10坪</option>
+                                    <option value="10-15">10～15坪</option>
+                                    <option value="15-20">15～20坪</option>
+                                    <option value="20-25">20～25坪</option>
+                                    <option value="25-30">25～30坪</option>
+                                    <option value="30-35">30～35坪</option>
+                                    <option value="35-40">35～40坪</option>
+                                    <option value="40-">40坪～</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>築年数</label>
+                                <select id="sold-list-filter-age">
+                                    <option value="">すべて</option>
+                                    <option value="0-5">～5年</option>
+                                    <option value="5-10">5～10年</option>
+                                    <option value="10-15">10～15年</option>
+                                    <option value="15-20">15～20年</option>
+                                    <option value="20-25">20～25年</option>
+                                    <option value="25-30">25～30年</option>
+                                    <option value="30-">30年～</option>
+                                </select>
+                            </div>
+                            <div class="filter-group"><button class="btn btn-primary" onclick="applySoldListFilter()">適用</button></div>
+                            <div class="filter-group"><button class="btn btn-outline" onclick="resetSoldListFilter()">リセット</button></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="results-count">
+                    <div>成約済み物件数: <strong id="sold-result-count">0</strong>件 <span id="sold-list-filter-notice" style="color:var(--accent-gold);margin-left:12px;"></span></div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <select class="sort-select" id="sold-sort-select" onchange="sortSoldList()">
+                            <option value="soldDate-desc">成約日 新しい順</option>
+                            <option value="soldDate-asc">成約日 古い順</option>
+                            <option value="id-desc">物件番号 降順</option>
+                            <option value="id-asc">物件番号 昇順</option>
+                            <option value="price-desc">価格 高い順</option>
+                            <option value="price-asc">価格 安い順</option>
+                        </select>
+                        <button class="export-btn" onclick="exportSoldCSV()">📥 CSV出力</button>
+                    </div>
+                </div>
+                <div class="table-container"><table><thead><tr><th>成約日</th><th>物件番号</th><th>区</th><th>建物名</th><th>階</th><th>間取</th><th class="text-right">価格</th><th class="text-right">面積</th><th class="text-right">築年</th><th>商号</th></tr></thead><tbody id="soldListBody"></tbody></table></div>
+                <div class="pagination" id="sold-pagination"></div>
+            </div>
+
+            <!-- 更新物件リスト -->
+            <div class="card">
+                <div class="card-title">更新物件リスト - 情報更新があった物件</div>
+                <div class="time-filter-buttons">
+                    <button class="time-btn active" data-period="yesterday">昨日から</button>
+                    <button class="time-btn" data-period="week">1週間前から</button>
+                    <button class="time-btn" data-period="month">1か月前から</button>
+                </div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※デモデータ: 実際のシステムでは過去データとの差分比較により更新を検出します</p>
+                <div class="results-count"><div>更新物件数: <strong id="ul-result-count">0</strong>件</div></div>
+                <div class="table-container"><table><thead><tr><th>物件番号</th><th>建物名</th><th>更新内容</th><th>変更前</th><th>変更後</th><th>備考</th></tr></thead><tbody id="updateListBody"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- 成約済み物件セクション -->
+        <div id="soldList" class="section">
+            <!-- 期間表示切替 -->
+            <div class="filter-section" style="margin-bottom:16px;">
+                <div class="filter-title">期間表示切替</div>
+                <div class="period-selector">
+                    <div class="period-unit-selector">
+                        <label>表示単位</label>
+                        <div class="period-unit-buttons">
+                            <button class="period-unit-btn active" data-unit="all" onclick="changePeriodUnit('all')">全期間</button>
+                            <button class="period-unit-btn" data-unit="day" onclick="changePeriodUnit('day')">日単位</button>
+                            <button class="period-unit-btn" data-unit="week" onclick="changePeriodUnit('week')">週単位</button>
+                            <button class="period-unit-btn" data-unit="month" onclick="changePeriodUnit('month')">月単位</button>
+                        </div>
+                    </div>
+                    <div class="period-value-selector" id="period-value-container" style="display:none;">
+                        <label id="period-value-label">期間選択</label>
+                        <div id="period-value-input"></div>
+                    </div>
+                    <div class="period-display" id="period-display">
+                        <span class="period-display-label">表示期間:</span>
+                        <span class="period-display-value" id="period-display-value">全期間</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成約済み物件用フィルター -->
+            <div class="filter-section" id="sold-filter-section">
+                <div class="filter-header" onclick="toggleFilter('sold-filter-section')">
+                    <div class="filter-title">検索条件</div>
+                    <div class="filter-toggle">
+                        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                    </div>
+                </div>
+                <div class="filter-content">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label>取引態様</label>
+                            <select id="sold-filter-torihiki">
+                                <option value="">すべて</option>
+                                <option value="売主">売主</option>
+                                <option value="専任">専任</option>
+                                <option value="専属">専属</option>
+                                <option value="一般">一般</option>
+                                <option value="代理">代理</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>区</label>
+                            <select id="sold-filter-district">
+                                <option value="">全区</option>
+                                <option value="港区">港区</option>
+                                <option value="中央区">中央区</option>
+                                <option value="千代田区">千代田区</option>
+                                <option value="渋谷区">渋谷区</option>
+                                <option value="新宿区">新宿区</option>
+                                <option value="文京区">文京区</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>建物名</label>
+                            <input type="text" id="sold-filter-building" placeholder="部分一致">
+                        </div>
+                        <div class="filter-group">
+                            <label>間取</label>
+                            <select id="sold-filter-layout">
+                                <option value="">すべて</option>
+                                <option value="1R">1R</option>
+                                <option value="1K">1K</option>
+                                <option value="1DK">1DK</option>
+                                <option value="1LDK">1LDK</option>
+                                <option value="2K">2K</option>
+                                <option value="2DK">2DK</option>
+                                <option value="2LDK">2LDK</option>
+                                <option value="3K">3K</option>
+                                <option value="3DK">3DK</option>
+                                <option value="3LDK">3LDK</option>
+                                <option value="4LDK">4LDK</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>価格（万円）</label>
+                            <select id="sold-filter-price">
+                                <option value="">すべて</option>
+                                <option value="0-5000">～5,000万円</option>
+                                <option value="5000-10000">5,000～10,000万円</option>
+                                <option value="10000-15000">10,000～15,000万円</option>
+                                <option value="15000-20000">15,000～20,000万円</option>
+                                <option value="20000-25000">20,000～25,000万円</option>
+                                <option value="25000-30000">25,000～30,000万円</option>
+                                <option value="30000-">30,000万円～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>専有面積（坪）</label>
+                            <select id="sold-filter-area">
+                                <option value="">すべて</option>
+                                <option value="0-10">～10坪</option>
+                                <option value="10-15">10～15坪</option>
+                                <option value="15-20">15～20坪</option>
+                                <option value="20-25">20～25坪</option>
+                                <option value="25-30">25～30坪</option>
+                                <option value="30-35">30～35坪</option>
+                                <option value="35-40">35～40坪</option>
+                                <option value="40-">40坪～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>築年数</label>
+                            <select id="sold-filter-age">
+                                <option value="">すべて</option>
+                                <option value="0-5">～5年</option>
+                                <option value="5-10">5～10年</option>
+                                <option value="10-15">10～15年</option>
+                                <option value="15-20">15～20年</option>
+                                <option value="20-25">20～25年</option>
+                                <option value="25-30">25～30年</option>
+                                <option value="30-">30年～</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-primary" onclick="applySoldFilter()">検索</button>
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-outline" onclick="resetSoldFilter()">リセット</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- フィルター適用状態表示 -->
+            <div id="sold-filter-badge" class="filter-active-badge" style="display:none;">
+                フィルター適用中: <span class="count" id="sold-filtered-count">0</span>件 / 全<span id="sold-total-count">0</span>件
+            </div>
+
+            <!-- 成約統計サマリー -->
+            <div class="card">
+                <div class="card-title">成約統計サマリー</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">成約件数</div>
+                        <div class="stat-value"><span id="sold-stat-count">-</span><span class="stat-unit">件</span></div>
+                    </div>
+                    <div class="stat-card secondary">
+                        <div class="stat-label">成約総額</div>
+                        <div class="stat-value" id="sold-stat-total">-</div>
+                        <div class="stat-unit">億円</div>
+                    </div>
+                    <div class="stat-card accent">
+                        <div class="stat-label">平均成約価格</div>
+                        <div class="stat-value" id="sold-stat-avg-price">-</div>
+                        <div class="stat-detail" id="sold-stat-price-detail">-</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-label">平均坪単価</div>
+                        <div class="stat-value" id="sold-stat-avg-sqm">-</div>
+                        <div class="stat-detail" id="sold-stat-sqm-detail">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成約統計グラフ -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">区別成約分布</div>
+                    <div class="chart-container"><canvas id="soldDistrictChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">価格帯別成約件数</div>
+                    <div class="chart-container"><canvas id="soldPriceRangeChart"></canvas></div>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">成約推移（日別）</div>
+                    <div class="chart-container"><canvas id="soldTrendChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">間取別成約分布</div>
+                    <div class="chart-container"><canvas id="soldLayoutChart"></canvas></div>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">面積帯別（坪）成約件数</div>
+                    <div class="chart-container"><canvas id="soldAreaRangeChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">専有面積（坪） vs 価格（成約物件）</div>
+                    <div class="chart-container"><canvas id="soldScatterAreaChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- 商号別成約ランキング -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">成約物件総額 商号TOP15</div>
+                    <div class="chart-container"><canvas id="soldSellerTotalChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">成約物件数 商号TOP15</div>
+                    <div class="chart-container"><canvas id="soldSellerCountChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 詳細データセクション（コメントアウト）
+        <div id="detail" class="section">
+            <div class="card">
+                <div class="card-title">データ定義</div>
+                <div class="table-container" style="max-height:none;"><table><thead><tr><th>項目名</th><th>説明</th></tr></thead><tbody>
+                    <tr><td>物件番号</td><td>物件の一意識別番号</td></tr>
+                    <tr><td>物件種目</td><td>物件の種類（中古マンション等）</td></tr>
+                    <tr><td>専有面積</td><td>専有部分の面積（坪）※元データは㎡を坪に変換</td></tr>
+                    <tr><td>所在地</td><td>物件の所在地住所</td></tr>
+                    <tr><td>取引態様</td><td>売主、一般、専任等の取引形態</td></tr>
+                    <tr><td>価格</td><td>物件の販売価格（万円）</td></tr>
+                    <tr><td>用途地域</td><td>都市計画法に基づく用途地域</td></tr>
+                    <tr><td>坪単価</td><td>1坪あたりの価格（万円）</td></tr>
+                    <tr><td>建物名</td><td>マンション等の建物名称</td></tr>
+                    <tr><td>所在階</td><td>物件の所在階</td></tr>
+                    <tr><td>間取</td><td>部屋の間取り</td></tr>
+                    <tr><td>取引状況</td><td>公開中、申込あり、成約済み等</td></tr>
+                    <tr><td>管理費</td><td>月額管理費（円）</td></tr>
+                    <tr><td>沿線駅</td><td>最寄りの沿線・駅名</td></tr>
+                    <tr><td>交通</td><td>駅からの距離（徒歩分数等）</td></tr>
+                    <tr><td>商号</td><td>取扱不動産会社名</td></tr>
+                    <tr><td>築年月</td><td>建物の竣工年月</td></tr>
+                    <tr><td>電話番号</td><td>不動産会社の連絡先</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        -->
+    </div>
+
+    <footer><p>© 2025 Estate Core - 東京都6区 不動産相場分析ダッシュボード</p></footer>
+    <button class="back-to-top-btn" onclick="scrollToTop()">↑ TOP</button>
+
+    <script>
+        // グローバル変数
+        let allRawData = []; // CSVから読み込んだ生データ
+        let statsFilteredData = []; // 統計用フィルター済みデータ
+        let allProperties = [];
+        let filteredProperties = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
+        // 売主ランキング用データ
+        let allSellers = [];
+
+        // 成約済み物件用データ
+        let allSoldProperties = [];
+        let periodFilteredSoldProperties = []; // 期間フィルター後のデータ
+        let filteredSoldProperties = [];
+        let soldCurrentPage = 1;
+        
+        // 期間フィルター設定
+        let currentPeriodUnit = 'all'; // 'all', 'day', 'week', 'month'
+        let currentPeriodValue = null; // 選択された期間の値
+
+        const districtColors = {
+            "港区": "rgba(5, 31, 50, 0.85)",
+            "中央区": "rgba(15, 76, 117, 0.85)",
+            "千代田区": "rgba(45, 139, 122, 0.85)",
+            "渋谷区": "rgba(201, 169, 98, 0.85)",
+            "新宿区": "rgba(74, 111, 165, 0.85)",
+            "文京区": "rgba(139, 115, 85, 0.85)"
+        };
+
+        const districts = ["港区", "中央区", "千代田区", "渋谷区", "新宿区", "文京区"];
+
+        // Chart.js インスタンス保持
+        let priceDistChartInstance = null;
+        let districtChartInstance = null;
+        let scatterAreaChartInstance = null;
+        let scatterAgeChartInstance = null;
+        let sellerTotalChartInstance = null;
+        let sellerCountChartInstance = null;
+        
+        // 成約済み物件用Chart.jsインスタンス
+        let soldDistrictChartInstance = null;
+        let soldPriceRangeChartInstance = null;
+        let soldTrendChartInstance = null;
+        let soldLayoutChartInstance = null;
+        let soldAreaRangeChartInstance = null;
+        let soldScatterAreaChartInstance = null;
+        let soldSellerTotalChartInstance = null;
+        let soldSellerCountChartInstance = null;
+
+        // 数値フォーマット
+        function formatNumber(num) { return num.toLocaleString('ja-JP'); }
+
+        // 価格文字列からの数値変換
+        function parsePrice(priceStr) {
+            if (!priceStr) return 0;
+            const cleaned = priceStr.replace(/[",万円]/g, '');
+            return parseFloat(cleaned) || 0;
+        }
+
+        // 面積文字列からの数値変換（㎡）
+        function parseArea(areaStr) {
+            if (!areaStr) return 0;
+            const cleaned = areaStr.replace(/[㎡]/g, '');
+            return parseFloat(cleaned) || 0;
+        }
+
+        // ㎡から坪への変換（1坪 = 3.30579㎡）
+        function sqmToTsubo(sqm) {
+            return sqm / 3.30579;
+        }
+
+        // 坪単価を計算（万円/坪）
+        function calcTsuboPrice(price, areaSqm) {
+            if (!areaSqm || areaSqm <= 0) return 0;
+            const tsubo = sqmToTsubo(areaSqm);
+            return tsubo > 0 ? price / tsubo : 0;
+        }
+
+        // 築年数計算
+        function calcAge(yearStr) {
+            if (!yearStr) return -1;
+            const match = yearStr.match(/(\d{4})年/);
+            if (match) {
+                const year = parseInt(match[1]);
+                return new Date().getFullYear() - year;
+            }
+            return -1;
+        }
+
+        // 区を抽出
+        function extractDistrict(address) {
+            for (const d of districts) {
+                if (address && address.includes(d)) return d;
+            }
+            return '';
+        }
+
+        // CSVパース（簡易版）
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            const headers = parseCSVLine(lines[0]);
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const values = parseCSVLine(lines[i]);
+                const obj = {};
+                headers.forEach((h, idx) => {
+                    obj[h] = values[idx] || '';
+                });
+                data.push(obj);
+            }
+            return data;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        // データロード
+        async function loadData() {
+            try {
+                const response = await fetch('reins_20251207.csv');
+                const text = await response.text();
+                const rawData = parseCSV(text);
+                
+                allRawData = rawData.map(row => {
+                    const price = parsePrice(row['価格']);
+                    const areaSqm = parseArea(row['専有面積']);
+                    const areaTsubo = sqmToTsubo(areaSqm);
+                    const age = calcAge(row['築年月']);
+                    const district = extractDistrict(row['所在地']);
+                    const tsuboPrice = areaTsubo > 0 ? price / areaTsubo : 0;
+                    
+                    return {
+                        id: parseInt(row['物件番号']) || 0,
+                        district: district,
+                        building: row['建物名'] || '',
+                        floor: row['所在階'] || '',
+                        layout: row['間取'] || '',
+                        price: price,
+                        priceStr: row['価格'] || '',
+                        area: areaTsubo,
+                        areaSqm: areaSqm,
+                        areaStr: areaTsubo.toFixed(2) + '坪',
+                        age: age,
+                        status: row['取引状況'] || '-',
+                        company: row['商号'] || '',
+                        torihiki: row['取引態様'] || '',
+                        tsuboPrice: tsuboPrice
+                    };
+                }).filter(d => d.district && d.price > 0);
+
+                statsFilteredData = [...allRawData];
+                allProperties = [...allRawData];
+                filteredProperties = [...allProperties].sort((a,b) => a.id - b.id);
+
+                // 初期表示
+                updateStatsDisplay();
+                updateSellerStats();
+                renderPropertyList();
+                renderUpdateList('yesterday');
+
+                // 成約済み物件データの読み込み
+                await loadSoldData();
+
+                document.getElementById('loadingOverlay').style.display = 'none';
+            } catch(e) {
+                console.error('データ読み込みエラー:', e);
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        }
+
+        // 統計表示更新
+        function updateStatsDisplay() {
+            const data = statsFilteredData;
+            const totalCount = allRawData.length;
+            const filteredCount = data.length;
+
+            // フィルターバッジ表示
+            const badge = document.getElementById('stats-filter-badge');
+            if (filteredCount < totalCount) {
+                badge.style.display = 'inline-flex';
+                document.getElementById('stats-filtered-count').textContent = formatNumber(filteredCount);
+                document.getElementById('stats-total-count').textContent = formatNumber(totalCount);
+            } else {
+                badge.style.display = 'none';
+            }
+
+            if (data.length === 0) {
+                document.getElementById('stat-price-avg').textContent = '-';
+                document.getElementById('stat-price-detail').textContent = '-';
+                document.getElementById('stat-area-avg').textContent = '-';
+                document.getElementById('stat-area-detail').textContent = '-';
+                document.getElementById('stat-sqm-avg').textContent = '-';
+                document.getElementById('stat-sqm-detail').textContent = '-';
+                document.getElementById('stat-count').textContent = '0';
+                document.getElementById('district-stats-body').innerHTML = '';
+                return;
+            }
+
+            // 価格統計
+            const prices = data.map(d => d.price).sort((a,b) => a - b);
+            const avgPrice = prices.reduce((a,b) => a+b, 0) / prices.length;
+            const medianPrice = prices[Math.floor(prices.length / 2)];
+            const minPrice = prices[0];
+            const maxPrice = prices[prices.length - 1];
+
+            document.getElementById('stat-price-avg').textContent = formatNumber(Math.round(avgPrice * 10) / 10);
+            document.getElementById('stat-price-detail').innerHTML = `中央値: ${formatNumber(medianPrice)}<br>最小: ${formatNumber(minPrice)} / 最大: ${formatNumber(maxPrice)}`;
+
+            // 面積統計
+            const areas = data.map(d => d.area).sort((a,b) => a - b);
+            const avgArea = areas.reduce((a,b) => a+b, 0) / areas.length;
+            const medianArea = areas[Math.floor(areas.length / 2)];
+            const minArea = areas[0];
+            const maxArea = areas[areas.length - 1];
+
+            document.getElementById('stat-area-avg').textContent = (Math.round(avgArea * 10) / 10).toFixed(1);
+            document.getElementById('stat-area-detail').innerHTML = `中央値: ${medianArea.toFixed(1)}<br>最小: ${minArea.toFixed(1)} / 最大: ${maxArea.toFixed(1)}`;
+
+            // 坪単価統計
+            const tsuboPrices = data.filter(d => d.tsuboPrice > 0).map(d => d.tsuboPrice).sort((a,b) => a - b);
+            if (tsuboPrices.length > 0) {
+                const avgTsubo = tsuboPrices.reduce((a,b) => a+b, 0) / tsuboPrices.length;
+                const medianTsubo = tsuboPrices[Math.floor(tsuboPrices.length / 2)];
+                document.getElementById('stat-sqm-avg').textContent = (Math.round(avgTsubo * 10) / 10).toFixed(1);
+                document.getElementById('stat-sqm-detail').innerHTML = `中央値: ${medianTsubo.toFixed(1)}`;
+            }
+
+            // 物件数
+            document.getElementById('stat-count').textContent = formatNumber(data.length);
+
+            // 区別統計
+            const districtStatsHtml = districts.map(d => {
+                const dData = data.filter(p => p.district === d);
+                if (dData.length === 0) return '';
+                const dPrices = dData.map(p => p.price).sort((a,b) => a - b);
+                const dAvgPrice = dPrices.reduce((a,b) => a+b, 0) / dPrices.length;
+                const dMedianPrice = dPrices[Math.floor(dPrices.length / 2)];
+                const dAvgArea = dData.map(p => p.area).reduce((a,b) => a+b, 0) / dData.length;
+                return `<tr><td>${d}</td><td class="text-right">${formatNumber(dData.length)}</td><td class="text-right">${formatNumber(Math.round(dAvgPrice * 10) / 10)}</td><td class="text-right">${formatNumber(dMedianPrice)}</td><td class="text-right">${dAvgArea.toFixed(1)}</td></tr>`;
+            }).join('');
+            document.getElementById('district-stats-body').innerHTML = districtStatsHtml;
+
+            // チャート更新
+            updateCharts();
+        }
+
+        // チャート更新
+        function updateCharts() {
+            const data = statsFilteredData;
+
+            // 価格分布
+            const priceRanges = {
+                "〜3,000": 0,
+                "3,000〜5,000": 0,
+                "5,000〜7,000": 0,
+                "7,000〜10,000": 0,
+                "10,000〜15,000": 0,
+                "15,000〜20,000": 0,
+                "20,000〜30,000": 0,
+                "30,000〜": 0
+            };
+            data.forEach(d => {
+                if (d.price < 3000) priceRanges["〜3,000"]++;
+                else if (d.price < 5000) priceRanges["3,000〜5,000"]++;
+                else if (d.price < 7000) priceRanges["5,000〜7,000"]++;
+                else if (d.price < 10000) priceRanges["7,000〜10,000"]++;
+                else if (d.price < 15000) priceRanges["10,000〜15,000"]++;
+                else if (d.price < 20000) priceRanges["15,000〜20,000"]++;
+                else if (d.price < 30000) priceRanges["20,000〜30,000"]++;
+                else priceRanges["30,000〜"]++;
+            });
+
+            if (priceDistChartInstance) priceDistChartInstance.destroy();
+            priceDistChartInstance = new Chart(document.getElementById('priceDistChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(priceRanges),
+                    datasets: [{ label: '在庫物件数', data: Object.values(priceRanges), backgroundColor: 'rgba(5, 31, 50, 0.75)', borderColor: 'rgba(5, 31, 50, 1)', borderWidth: 1 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: '価格帯 (万円)' } },
+                        y: { beginAtZero: true, title: { display: true, text: '在庫物件数 (件)' } }
+                    }
+                }
+            });
+
+            // 区別物件数
+            const districtCounts = districts.map(d => data.filter(p => p.district === d).length);
+            if (districtChartInstance) districtChartInstance.destroy();
+            districtChartInstance = new Chart(document.getElementById('districtChart'), {
+                type: 'bar',
+                data: {
+                    labels: districts,
+                    datasets: [{ label: '在庫物件数', data: districtCounts, backgroundColor: districts.map(d => districtColors[d]), borderWidth: 1 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '在庫物件数 (件)' } }
+                    }
+                }
+            });
+
+            // 散布図（面積 vs 価格）
+            if (scatterAreaChartInstance) scatterAreaChartInstance.destroy();
+            scatterAreaChartInstance = new Chart(document.getElementById('scatterAreaChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: districts.map(district => ({
+                        label: district,
+                        data: data.filter(d => d.district === district).map(d => ({ x: d.area, y: d.price })),
+                        backgroundColor: districtColors[district],
+                        pointRadius: 3
+                    }))
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } }, scales: { x: { title: { display: true, text: '専有面積 (坪)' } }, y: { title: { display: true, text: '価格 (万円)' } } } }
+            });
+
+            // 散布図（築年数 vs 価格）
+            if (scatterAgeChartInstance) scatterAgeChartInstance.destroy();
+            scatterAgeChartInstance = new Chart(document.getElementById('scatterAgeChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: districts.map(district => ({
+                        label: district,
+                        data: data.filter(d => d.district === district && d.age >= 0).map(d => ({ x: d.age, y: d.price })),
+                        backgroundColor: districtColors[district],
+                        pointRadius: 3
+                    }))
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } }, scales: { x: { title: { display: true, text: '築年数 (年)' } }, y: { title: { display: true, text: '価格 (万円)' } } } }
+            });
+        }
+
+        // プルダウンの範囲値をパース
+        function parseRangeValue(value) {
+            if (!value) return { min: 0, max: Infinity };
+            const parts = value.split('-');
+            const min = parts[0] ? parseFloat(parts[0]) : 0;
+            const max = parts[1] ? parseFloat(parts[1]) : Infinity;
+            return { min, max };
+        }
+
+        // 統計フィルター適用
+        function applyStatsFilter() {
+            const torihiki = document.getElementById('stats-filter-torihiki').value;
+            const district = document.getElementById('stats-filter-district').value;
+            const layout = document.getElementById('stats-filter-layout').value;
+            const priceRange = parseRangeValue(document.getElementById('stats-filter-price').value);
+            const areaRange = parseRangeValue(document.getElementById('stats-filter-area').value);
+            const ageRange = parseRangeValue(document.getElementById('stats-filter-age').value);
+
+            statsFilteredData = allRawData.filter(p => {
+                if (torihiki && p.torihiki !== torihiki) return false;
+                if (district && p.district !== district) return false;
+                if (layout && !p.layout.includes(layout)) return false;
+                if (p.price < priceRange.min || p.price > priceRange.max) return false;
+                if (p.area < areaRange.min || p.area > areaRange.max) return false;
+                if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
+                return true;
+            });
+
+            updateStatsDisplay();
+        }
+
+        // 統計フィルターリセット
+        function resetStatsFilter() {
+            document.getElementById('stats-filter-torihiki').value = '';
+            document.getElementById('stats-filter-district').value = '';
+            document.getElementById('stats-filter-layout').value = '';
+            document.getElementById('stats-filter-price').value = '';
+            document.getElementById('stats-filter-area').value = '';
+            document.getElementById('stats-filter-age').value = '';
+            statsFilteredData = [...allRawData];
+            updateStatsDisplay();
+        }
+
+        // 商号別ランキング用フィルター済みデータ
+        let sellerFilteredData = [];
+
+        // 売主統計更新
+        function updateSellerStats(filterDistrict = '', filterTorihiki = '') {
+            // フィルター適用
+            let targetData = allRawData;
+            
+            if (filterDistrict) {
+                targetData = targetData.filter(d => d.district === filterDistrict);
+            }
+            if (filterTorihiki) {
+                targetData = targetData.filter(d => d.torihiki === filterTorihiki);
+            }
+            
+            sellerFilteredData = targetData;
+            
+            // フィルターバッジ表示
+            const badge = document.getElementById('seller-filter-badge');
+            const totalCount = allRawData.length;
+            const filteredCount = targetData.length;
+            
+            if (filterDistrict || filterTorihiki) {
+                badge.style.display = 'inline-flex';
+                document.getElementById('seller-filtered-count').textContent = formatNumber(filteredCount);
+                document.getElementById('seller-total-count').textContent = formatNumber(totalCount);
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            // タイトル更新
+            let titlePrefix = '';
+            if (filterTorihiki) {
+                titlePrefix = filterTorihiki;
+            }
+            if (filterDistrict) {
+                titlePrefix = titlePrefix ? `${filterDistrict} ${titlePrefix}` : filterDistrict;
+            }
+            titlePrefix = titlePrefix || '';
+            
+            const prefix = titlePrefix ? titlePrefix + ' ' : '';
+            document.getElementById('seller-total-chart-title').textContent = `${prefix}在庫物件総額 TOP15`;
+            document.getElementById('seller-count-chart-title').textContent = `${prefix}在庫物件数 TOP15`;
+            document.getElementById('seller-ranking-title').textContent = `${prefix}在庫物件 商号別詳細ランキング`;
+            
+            // 商号別集計
+            const sellerMap = {};
+            targetData.forEach(d => {
+                if (!sellerMap[d.company]) {
+                    sellerMap[d.company] = { total: 0, count: 0 };
+                }
+                sellerMap[d.company].total += d.price;
+                sellerMap[d.company].count++;
+            });
+
+            allSellers = Object.entries(sellerMap).map(([company, data]) => ({
+                '商号': company,
+                '物件総額_億円': data.total / 10000,
+                '物件数': data.count,
+                '平均単価_万円': data.total / data.count
+            }));
+
+            // サマリー更新
+            const companyCount = Object.keys(sellerMap).length;
+            const totalAmount = targetData.reduce((a, d) => a + d.price, 0) / 10000;
+            const propertyCount = targetData.length;
+
+            document.getElementById('seller-company-count').innerHTML = `${companyCount}<span class="stat-unit">社</span>`;
+            document.getElementById('seller-total-amount').innerHTML = `${totalAmount.toFixed(1)}<span class="stat-unit">億円</span>`;
+            document.getElementById('seller-property-count').innerHTML = `${formatNumber(propertyCount)}<span class="stat-unit">件</span>`;
+
+            // チャート更新
+            const sellerByTotal = [...allSellers].sort((a, b) => b['物件総額_億円'] - a['物件総額_億円']).slice(0, 15);
+            const sellerByCount = [...allSellers].sort((a, b) => b['物件数'] - a['物件数']).slice(0, 15);
+
+            if (sellerTotalChartInstance) sellerTotalChartInstance.destroy();
+            sellerTotalChartInstance = new Chart(document.getElementById('sellerTotalChart'), {
+                type: 'bar',
+                data: {
+                    labels: sellerByTotal.map(d => d['商号'].substring(0, 12) + (d['商号'].length > 12 ? '...' : '')),
+                    datasets: [{ label: '総額(億円)', data: sellerByTotal.map(d => d['物件総額_億円']), backgroundColor: 'rgba(201, 169, 98, 0.8)', borderWidth: 1 }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, title: { display: true, text: '物件総額 (億円)' } } } }
+            });
+
+            if (sellerCountChartInstance) sellerCountChartInstance.destroy();
+            sellerCountChartInstance = new Chart(document.getElementById('sellerCountChart'), {
+                type: 'bar',
+                data: {
+                    labels: sellerByCount.map(d => d['商号'].substring(0, 12) + (d['商号'].length > 12 ? '...' : '')),
+                    datasets: [{ label: '件数', data: sellerByCount.map(d => d['物件数']), backgroundColor: 'rgba(45, 139, 122, 0.8)', borderWidth: 1 }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, title: { display: true, text: '物件数' } } } }
+            });
+
+            // ランキングテーブル初期表示
+            renderRankingTable('total');
+        }
+
+        // 商号別ランキングフィルター適用
+        function applySellerFilter() {
+            const district = document.getElementById('seller-filter-district').value;
+            const torihiki = document.getElementById('seller-filter-torihiki').value;
+            updateSellerStats(district, torihiki);
+        }
+
+        // 商号別ランキングフィルターリセット
+        function resetSellerFilter() {
+            document.getElementById('seller-filter-district').value = '';
+            document.getElementById('seller-filter-torihiki').value = '';
+            updateSellerStats('', '');
+        }
+
+        // ランキングテーブル描画
+        function renderRankingTable(sortBy = 'total') {
+            const tbody = document.getElementById('sellerRankingBody');
+            let sortedData;
+            if (sortBy === 'total') sortedData = [...allSellers].sort((a,b) => b['物件総額_億円'] - a['物件総額_億円']);
+            else if (sortBy === 'count') sortedData = [...allSellers].sort((a,b) => b['物件数'] - a['物件数']);
+            else sortedData = [...allSellers].sort((a,b) => b['平均単価_万円'] - a['平均単価_万円']);
+            
+            tbody.innerHTML = sortedData.map((item, index) => {
+                const rank = index + 1;
+                let rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+                return `<tr><td><span class="rank-badge ${rankClass}">${rank}</span></td><td><span class="company-link" onclick="filterByCompany('${item['商号'].replace(/'/g, "\\'")}')">${item['商号']}</span></td><td class="text-right value-highlight">${item['物件総額_億円'].toFixed(1)}</td><td class="text-right">${item['物件数']}</td><td class="text-right">${formatNumber(Math.round(item['平均単価_万円']))}</td></tr>`;
+            }).join('');
+        }
+
+        // 商号で物件リストをフィルター
+        function filterByCompany(companyName) {
+            switchSection('propertyList');
+            document.getElementById('pl-filter-company').value = companyName;
+            document.getElementById('pl-filter-notice').textContent = `「${companyName}」でフィルター中`;
+            applyPropertyFilter();
+        }
+
+        // 物件リストフィルター適用
+        function applyPropertyFilter() {
+            const district = document.getElementById('pl-filter-district').value;
+            const building = document.getElementById('pl-filter-building').value.toLowerCase();
+            const company = document.getElementById('pl-filter-company').value.toLowerCase();
+            const layout = document.getElementById('pl-filter-layout').value;
+            const priceRange = parseRangeValue(document.getElementById('pl-filter-price').value);
+            const areaRange = parseRangeValue(document.getElementById('pl-filter-area').value);
+            const ageRange = parseRangeValue(document.getElementById('pl-filter-age').value);
+
+            filteredProperties = allProperties.filter(p => {
+                if (district && p.district !== district) return false;
+                if (building && !p.building.toLowerCase().includes(building)) return false;
+                if (company && !p.company.toLowerCase().includes(company)) return false;
+                if (layout && !p.layout.includes(layout)) return false;
+                if (p.price < priceRange.min || p.price > priceRange.max) return false;
+                if (p.area < areaRange.min || p.area > areaRange.max) return false;
+                if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
+                return true;
+            });
+
+            currentPage = 1;
+            sortPropertyList();
+        }
+
+        // 物件リストリセット
+        function resetPropertyFilter() {
+            document.getElementById('pl-filter-district').value = '';
+            document.getElementById('pl-filter-building').value = '';
+            document.getElementById('pl-filter-company').value = '';
+            document.getElementById('pl-filter-layout').value = '';
+            document.getElementById('pl-filter-price').value = '';
+            document.getElementById('pl-filter-area').value = '';
+            document.getElementById('pl-filter-age').value = '';
+            document.getElementById('pl-filter-notice').textContent = '';
+            filteredProperties = [...allProperties];
+            currentPage = 1;
+            sortPropertyList();
+        }
+
+        // 物件リストソート
+        function sortPropertyList() {
+            const sortValue = document.getElementById('pl-sort-select').value;
+            const [field, order] = sortValue.split('-');
+            filteredProperties.sort((a, b) => {
+                let valA, valB;
+                if (field === 'id') { valA = a.id; valB = b.id; }
+                else if (field === 'price') { valA = a.price; valB = b.price; }
+                else if (field === 'area') { valA = a.area; valB = b.area; }
+                return order === 'asc' ? valA - valB : valB - valA;
+            });
+            currentPage = 1;
+            renderPropertyList();
+        }
+
+        // 物件リスト描画
+        function renderPropertyList() {
+            const tbody = document.getElementById('propertyListBody');
+            const totalCount = filteredProperties.length;
+            const totalPages = Math.ceil(totalCount / itemsPerPage);
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageData = filteredProperties.slice(start, end);
+
+            document.getElementById('pl-result-count').textContent = formatNumber(totalCount);
+
+            tbody.innerHTML = pageData.map(p => {
+                let statusClass = 'status-active';
+                if (p.status === '申込あり') statusClass = 'status-pending';
+                else if (p.status === '成約済み') statusClass = 'status-sold';
+                else if (p.status === '一時停止') statusClass = 'status-paused';
+                return `<tr><td>${p.id}</td><td>${p.district}</td><td>${p.building}</td><td>${p.floor}</td><td>${p.layout}</td><td class="text-right">${p.priceStr}</td><td class="text-right">${p.areaStr}</td><td class="text-right">${p.age >= 0 ? p.age + '年' : '-'}</td><td><span class="status-badge ${statusClass}">${p.status === '-' ? '公開中' : p.status}</span></td><td>${p.company}</td></tr>`;
+            }).join('');
+
+            renderPagination(totalPages);
+        }
+
+        // ページネーション描画
+        function renderPagination(totalPages) {
+            const container = document.getElementById('pl-pagination');
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+            
+            let html = `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>← 前へ</button>`;
+            const maxButtons = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+            if (endPage - startPage < maxButtons - 1) startPage = Math.max(1, endPage - maxButtons + 1);
+
+            if (startPage > 1) html += `<button onclick="goToPage(1)">1</button><span>...</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button onclick="goToPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+            }
+            if (endPage < totalPages) html += `<span>...</span><button onclick="goToPage(${totalPages})">${totalPages}</button>`;
+            html += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>次へ →</button>`;
+            container.innerHTML = html;
+        }
+
+        function goToPage(page) { currentPage = page; renderPropertyList(); }
+
+        // CSV出力
+        function exportPropertyCSV() {
+            const headers = ['物件番号','区','建物名','所在階','間取','価格','専有面積(坪)','築年数','取引状況','商号'];
+            const rows = filteredProperties.map(p => [p.id, p.district, p.building, p.floor, p.layout, p.priceStr, p.areaStr, p.age >= 0 ? p.age : '', p.status, p.company]);
+            const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'property_list.csv';
+            link.click();
+        }
+
+        // 更新物件リスト描画（デモデータ）
+        function renderUpdateList(period) {
+            const demoUpdates = [
+                { id: 100137033376, building: 'ＴＨＥ　千代田麹町　ＴＯＷＥＲ', type: '価格変更', before: '15,480万円', after: '14,480万円', note: '1,000万円値下げ' },
+                { id: 100136640185, building: 'パークリュクス神田多町', type: '取引状況', before: '公開中', after: '申込あり', note: '' },
+                { id: 100135826653, building: 'クレイシア神田淡路町', type: '取引状況', before: '申込あり', after: '成約済み', note: '成約まで32日' },
+                { id: 100136978949, building: 'ワテラスタワーレジデンス', type: '価格変更', before: '29,800万円', after: '28,500万円', note: '1,300万円値下げ' },
+                { id: 100137022472, building: '玉柳・テシコ六番町ビル', type: '取引状況', before: '公開中', after: '成約済み', note: '成約まで45日' },
+            ];
+            
+            let filtered = demoUpdates;
+            if (period === 'yesterday') filtered = demoUpdates.slice(0, 2);
+            else if (period === 'week') filtered = demoUpdates.slice(0, 4);
+
+            document.getElementById('ul-result-count').textContent = filtered.length;
+            const tbody = document.getElementById('updateListBody');
+            tbody.innerHTML = filtered.map(u => {
+                let badge = u.type === '価格変更' ? (u.before > u.after ? 'update-price-down' : 'update-price-up') : 'update-status';
+                return `<tr><td>${u.id}</td><td>${u.building}</td><td><span class="update-badge ${badge}">${u.type}</span></td><td>${u.before}</td><td style="font-weight:600;">${u.after}</td><td>${u.note}</td></tr>`;
+            }).join('');
+        }
+
+        // ナビゲーション切り替え
+        function switchSection(sectionId) {
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            
+            document.querySelectorAll(`[data-section="${sectionId}"]`).forEach(el => el.classList.add('active'));
+            document.getElementById(sectionId).classList.add('active');
+            
+            // モバイルメニューを閉じる
+            document.getElementById('mobileMenu').classList.remove('active');
+            document.getElementById('hamburger').classList.remove('active');
+        }
+
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => switchSection(link.dataset.section));
+        });
+
+        document.querySelectorAll('.mobile-nav-link').forEach(link => {
+            link.addEventListener('click', () => switchSection(link.dataset.section));
+        });
+
+        // ハンバーガーメニュー
+        document.getElementById('hamburger').addEventListener('click', () => {
+            document.getElementById('hamburger').classList.toggle('active');
+            document.getElementById('mobileMenu').classList.toggle('active');
+        });
+
+        // ランキングタブ
+        document.querySelectorAll('.ranking-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.ranking-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                renderRankingTable(tab.dataset.sort);
+            });
+        });
+
+        // 時間フィルターボタン
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderUpdateList(btn.dataset.period);
+            });
+        });
+
+        // 成約済み物件データ読み込み
+        async function loadSoldData() {
+            try {
+                const response = await fetch('differences_master.csv');
+                const text = await response.text();
+                const diffData = parseCSV(text);
+                
+                // 差分種別が「削除」のものを成約済みとして抽出
+                allSoldProperties = diffData
+                    .filter(row => row['差分種別'] === '削除')
+                    .map(row => {
+                        const price = parsePrice(row['価格']);
+                        const areaSqm = parseArea(row['専有面積']);
+                        const areaTsubo = sqmToTsubo(areaSqm);
+                        const age = calcAge(row['築年月']);
+                        const district = extractDistrict(row['所在地']);
+                        const soldDate = row['差分検出日'] || '';
+                        const tsuboPrice = areaTsubo > 0 ? price / areaTsubo : 0;
+                        
+                        return {
+                            id: parseInt(row['物件番号']) || 0,
+                            soldDate: soldDate,
+                            district: district,
+                            building: row['建物名'] || '',
+                            floor: row['所在階'] || '',
+                            layout: row['間取'] || '',
+                            price: price,
+                            priceStr: row['価格'] || '',
+                            area: areaTsubo,
+                            areaSqm: areaSqm,
+                            areaStr: areaTsubo.toFixed(2) + '坪',
+                            age: age,
+                            company: row['商号'] || '',
+                            torihiki: row['取引態様'] || '',
+                            tsuboPrice: tsuboPrice
+                        };
+                    })
+                    .filter(d => d.id > 0);
+
+                // 期間選択肢を生成
+                initializePeriodSelector();
+                
+                // 初期は全期間
+                periodFilteredSoldProperties = [...allSoldProperties];
+                filteredSoldProperties = [...allSoldProperties].sort((a, b) => {
+                    // 成約日の新しい順でデフォルトソート
+                    if (a.soldDate > b.soldDate) return -1;
+                    if (a.soldDate < b.soldDate) return 1;
+                    return 0;
+                });
+                renderSoldList();
+            } catch(e) {
+                console.log('differences_master.csv読み込みエラー（ファイルが存在しない可能性）:', e);
+                // ファイルがない場合は空で初期化
+                allSoldProperties = [];
+                periodFilteredSoldProperties = [];
+                filteredSoldProperties = [];
+                renderSoldList();
+            }
+        }
+        
+        // 期間選択肢の初期化
+        function initializePeriodSelector() {
+            // データから日付の範囲を取得
+            const dates = allSoldProperties.map(p => p.soldDate).filter(d => d).sort();
+            if (dates.length === 0) return;
+            
+            // 週と月の選択肢を生成するための準備
+            window.availableWeeks = getAvailableWeeks(dates);
+            window.availableMonths = getAvailableMonths(dates);
+        }
+        
+        // 利用可能な週のリストを取得
+        function getAvailableWeeks(dates) {
+            const weeks = new Set();
+            dates.forEach(dateStr => {
+                if (!dateStr) return;
+                const date = new Date(dateStr);
+                const weekInfo = getWeekInfo(date);
+                weeks.add(JSON.stringify(weekInfo));
+            });
+            return Array.from(weeks).map(w => JSON.parse(w)).sort((a, b) => {
+                if (a.year !== b.year) return b.year - a.year;
+                if (a.month !== b.month) return b.month - a.month;
+                return b.week - a.week;
+            });
+        }
+        
+        // 日付から年月週情報を取得
+        function getWeekInfo(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const week = Math.ceil(day / 7);
+            return { year, month, week };
+        }
+        
+        // 週の開始日と終了日を取得
+        function getWeekDateRange(weekInfo) {
+            const { year, month, week } = weekInfo;
+            const startDay = (week - 1) * 7 + 1;
+            const lastDayOfMonth = new Date(year, month, 0).getDate();
+            const endDay = Math.min(week * 7, lastDayOfMonth);
+            
+            const startDate = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+            const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+            return { startDate, endDate };
+        }
+        
+        // 利用可能な月のリストを取得
+        function getAvailableMonths(dates) {
+            const months = new Set();
+            dates.forEach(dateStr => {
+                if (!dateStr) return;
+                const [year, month] = dateStr.split('-');
+                months.add(`${year}-${month}`);
+            });
+            return Array.from(months).sort().reverse();
+        }
+        
+        // 期間単位変更
+        function changePeriodUnit(unit) {
+            currentPeriodUnit = unit;
+            currentPeriodValue = null;
+            
+            // ボタンのアクティブ状態を更新
+            document.querySelectorAll('.period-unit-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.unit === unit);
+            });
+            
+            const container = document.getElementById('period-value-container');
+            const inputContainer = document.getElementById('period-value-input');
+            const label = document.getElementById('period-value-label');
+            
+            if (unit === 'all') {
+                container.style.display = 'none';
+                applyPeriodFilter();
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            if (unit === 'day') {
+                label.textContent = '日付選択';
+                inputContainer.innerHTML = '<input type="date" id="period-date-picker" onchange="onPeriodValueChange()">';
+                // 最新の日付をデフォルトに
+                const dates = allSoldProperties.map(p => p.soldDate).filter(d => d).sort().reverse();
+                if (dates.length > 0) {
+                    document.getElementById('period-date-picker').value = dates[0];
+                    currentPeriodValue = dates[0];
+                    applyPeriodFilter();
+                }
+            } else if (unit === 'week') {
+                label.textContent = '週選択';
+                const weeks = window.availableWeeks || [];
+                let options = weeks.map(w => {
+                    const value = `${w.year}-${w.month}-${w.week}`;
+                    const label = `${w.year}年${w.month}月第${w.week}週目`;
+                    return `<option value="${value}">${label}</option>`;
+                }).join('');
+                inputContainer.innerHTML = `<select id="period-week-picker" onchange="onPeriodValueChange()">${options}</select>`;
+                if (weeks.length > 0) {
+                    currentPeriodValue = `${weeks[0].year}-${weeks[0].month}-${weeks[0].week}`;
+                    applyPeriodFilter();
+                }
+            } else if (unit === 'month') {
+                label.textContent = '月選択';
+                const months = window.availableMonths || [];
+                let options = months.map(m => {
+                    const [year, month] = m.split('-');
+                    return `<option value="${m}">${year}年${parseInt(month)}月</option>`;
+                }).join('');
+                inputContainer.innerHTML = `<select id="period-month-picker" onchange="onPeriodValueChange()">${options}</select>`;
+                if (months.length > 0) {
+                    currentPeriodValue = months[0];
+                    applyPeriodFilter();
+                }
+            }
+        }
+        
+        // 期間値変更時
+        function onPeriodValueChange() {
+            if (currentPeriodUnit === 'day') {
+                currentPeriodValue = document.getElementById('period-date-picker').value;
+            } else if (currentPeriodUnit === 'week') {
+                currentPeriodValue = document.getElementById('period-week-picker').value;
+            } else if (currentPeriodUnit === 'month') {
+                currentPeriodValue = document.getElementById('period-month-picker').value;
+            }
+            applyPeriodFilter();
+        }
+        
+        // 期間フィルター適用
+        function applyPeriodFilter() {
+            let displayText = '全期間';
+            
+            if (currentPeriodUnit === 'all' || !currentPeriodValue) {
+                periodFilteredSoldProperties = [...allSoldProperties];
+                displayText = '全期間';
+            } else if (currentPeriodUnit === 'day') {
+                periodFilteredSoldProperties = allSoldProperties.filter(p => p.soldDate === currentPeriodValue);
+                const [year, month, day] = currentPeriodValue.split('-');
+                displayText = `${year}年${parseInt(month)}月${parseInt(day)}日`;
+            } else if (currentPeriodUnit === 'week') {
+                const [year, month, week] = currentPeriodValue.split('-').map(Number);
+                const { startDate, endDate } = getWeekDateRange({ year, month, week });
+                periodFilteredSoldProperties = allSoldProperties.filter(p => 
+                    p.soldDate >= startDate && p.soldDate <= endDate
+                );
+                displayText = `${year}年${month}月第${week}週目`;
+            } else if (currentPeriodUnit === 'month') {
+                const [year, month] = currentPeriodValue.split('-');
+                periodFilteredSoldProperties = allSoldProperties.filter(p => 
+                    p.soldDate && p.soldDate.startsWith(`${year}-${month}`)
+                );
+                displayText = `${year}年${parseInt(month)}月`;
+            }
+            
+            // 表示期間を更新
+            document.getElementById('period-display-value').textContent = displayText;
+            
+            // 検索条件フィルターをリセットして適用
+            resetSoldFilter();
+        }
+
+        // 成約済み物件フィルター適用
+        function applySoldFilter() {
+            const torihiki = document.getElementById('sold-filter-torihiki').value;
+            const district = document.getElementById('sold-filter-district').value;
+            const building = document.getElementById('sold-filter-building').value.toLowerCase();
+            const layout = document.getElementById('sold-filter-layout').value;
+            const priceRange = parseRangeValue(document.getElementById('sold-filter-price').value);
+            const areaRange = parseRangeValue(document.getElementById('sold-filter-area').value);
+            const ageRange = parseRangeValue(document.getElementById('sold-filter-age').value);
+
+            // 期間フィルター済みデータからさらにフィルター
+            filteredSoldProperties = periodFilteredSoldProperties.filter(p => {
+                // 取引態様フィルター
+                if (torihiki && p.torihiki !== torihiki) return false;
+                // 区フィルター
+                if (district && p.district !== district) return false;
+                // 建物名フィルター
+                if (building && !p.building.toLowerCase().includes(building)) return false;
+                // 間取フィルター
+                if (layout && !p.layout.includes(layout)) return false;
+                // 価格フィルター
+                if (p.price < priceRange.min || p.price > priceRange.max) return false;
+                // 面積フィルター
+                if (p.area < areaRange.min || p.area > areaRange.max) return false;
+                // 築年数フィルター
+                if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
+                return true;
+            });
+
+            // フィルターバッジ表示
+            const badge = document.getElementById('sold-filter-badge');
+            const totalCount = periodFilteredSoldProperties.length;
+            const filteredCount = filteredSoldProperties.length;
+            
+            if (filteredCount < totalCount) {
+                badge.style.display = 'inline-flex';
+                document.getElementById('sold-filtered-count').textContent = formatNumber(filteredCount);
+                document.getElementById('sold-total-count').textContent = formatNumber(totalCount);
+            } else {
+                badge.style.display = 'none';
+            }
+
+            soldCurrentPage = 1;
+            sortSoldList();
+        }
+
+        // 成約済み物件フィルターリセット
+        function resetSoldFilter() {
+            document.getElementById('sold-filter-torihiki').value = '';
+            document.getElementById('sold-filter-district').value = '';
+            document.getElementById('sold-filter-building').value = '';
+            document.getElementById('sold-filter-layout').value = '';
+            document.getElementById('sold-filter-price').value = '';
+            document.getElementById('sold-filter-area').value = '';
+            document.getElementById('sold-filter-age').value = '';
+            
+            // フィルターバッジを非表示
+            document.getElementById('sold-filter-badge').style.display = 'none';
+            
+            filteredSoldProperties = [...periodFilteredSoldProperties];
+            soldCurrentPage = 1;
+            sortSoldList();
+        }
+
+        // 成約済み物件リスト描画
+        function renderSoldList() {
+            const tbody = document.getElementById('soldListBody');
+            const totalCount = filteredSoldProperties.length;
+            const totalPages = Math.ceil(totalCount / itemsPerPage);
+            const start = (soldCurrentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageData = filteredSoldProperties.slice(start, end);
+
+            document.getElementById('sold-result-count').textContent = formatNumber(totalCount);
+
+            if (totalCount === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-secondary);padding:40px;">成約済み物件データがありません</td></tr>';
+                document.getElementById('sold-pagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = pageData.map(p => {
+                return `<tr><td>${p.soldDate}</td><td>${p.id}</td><td>${p.district}</td><td>${p.building}</td><td>${p.floor}</td><td>${p.layout}</td><td class="text-right">${p.priceStr}</td><td class="text-right">${p.areaStr}</td><td class="text-right">${p.age >= 0 ? p.age + '年' : '-'}</td><td>${p.company}</td></tr>`;
+            }).join('');
+
+            renderSoldPagination(totalPages);
+            
+            // 統計グラフを更新
+            updateSoldStats();
+        }
+
+        // 成約済み物件統計・グラフ更新
+        function updateSoldStats() {
+            const data = filteredSoldProperties;
+            
+            if (data.length === 0) {
+                document.getElementById('sold-stat-count').textContent = '0';
+                document.getElementById('sold-stat-total').textContent = '-';
+                document.getElementById('sold-stat-avg-price').textContent = '-';
+                document.getElementById('sold-stat-price-detail').textContent = '-';
+                document.getElementById('sold-stat-avg-sqm').textContent = '-';
+                document.getElementById('sold-stat-sqm-detail').textContent = '-';
+                return;
+            }
+
+            // サマリー統計
+            const totalCount = data.length;
+            const totalAmount = data.reduce((sum, d) => sum + d.price, 0);
+            const avgPrice = totalAmount / totalCount;
+            const prices = data.map(d => d.price).sort((a, b) => a - b);
+            const medianPrice = prices[Math.floor(prices.length / 2)];
+            
+            // 坪単価計算（areaは既に坪単位）
+            const tsuboPrices = data.filter(d => d.area > 0).map(d => d.price / d.area);
+            const avgTsuboPrice = tsuboPrices.length > 0 ? tsuboPrices.reduce((a, b) => a + b, 0) / tsuboPrices.length : 0;
+            const sortedTsubo = [...tsuboPrices].sort((a, b) => a - b);
+            const medianTsuboPrice = sortedTsubo.length > 0 ? sortedTsubo[Math.floor(sortedTsubo.length / 2)] : 0;
+
+            document.getElementById('sold-stat-count').textContent = formatNumber(totalCount);
+            document.getElementById('sold-stat-total').textContent = (totalAmount / 10000).toFixed(1);
+            document.getElementById('sold-stat-avg-price').textContent = formatNumber(Math.round(avgPrice)) + '万円';
+            document.getElementById('sold-stat-price-detail').innerHTML = `中央値: ${formatNumber(medianPrice)}万円`;
+            document.getElementById('sold-stat-avg-sqm').textContent = avgTsuboPrice.toFixed(1) + '万円';
+            document.getElementById('sold-stat-sqm-detail').innerHTML = `中央値: ${medianTsuboPrice.toFixed(1)}万円`;
+
+            // 区別成約件数・総額グラフ
+            const districtStats = {};
+            districts.forEach(d => { districtStats[d] = { count: 0, total: 0 }; });
+            data.forEach(d => {
+                if (districtStats[d.district]) {
+                    districtStats[d.district].count++;
+                    districtStats[d.district].total += d.price;
+                }
+            });
+
+            // 区別在庫物件数を計算
+            const districtInventory = {};
+            districts.forEach(d => { districtInventory[d] = 0; });
+            allRawData.forEach(d => {
+                if (districtInventory[d.district] !== undefined) {
+                    districtInventory[d.district]++;
+                }
+            });
+
+            // 区別の成約率（在庫に占める割合）を計算
+            const districtSoldRatio = districts.map(d => {
+                const inventory = districtInventory[d];
+                const sold = districtStats[d].count;
+                return inventory > 0 ? (sold / inventory * 100) : 0;
+            });
+
+            if (soldDistrictChartInstance) soldDistrictChartInstance.destroy();
+            soldDistrictChartInstance = new Chart(document.getElementById('soldDistrictChart'), {
+                type: 'bar',
+                data: {
+                    labels: districts,
+                    datasets: [
+                        {
+                            label: '成約件数',
+                            data: districts.map(d => districtStats[d].count),
+                            backgroundColor: districts.map(d => districtColors[d]),
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '在庫に占める割合(%)',
+                            data: districtSoldRatio,
+                            type: 'line',
+                            borderColor: 'rgba(199, 91, 91, 1)',
+                            backgroundColor: 'rgba(199, 91, 91, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            pointBackgroundColor: 'rgba(199, 91, 91, 1)',
+                            pointRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, position: 'left', title: { display: true, text: '成約件数 (件)' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '在庫に占める割合 (%)' } }
+                    }
+                }
+            });
+
+            // 価格帯別成約件数（仕入れ判断に重要）
+            const priceRanges = {
+                '～3,000': 0, '3,000～5,000': 0, '5,000～7,000': 0, '7,000～10,000': 0,
+                '10,000～15,000': 0, '15,000～20,000': 0, '20,000～30,000': 0, '30,000～': 0
+            };
+            data.forEach(d => {
+                if (d.price < 3000) priceRanges['～3,000']++;
+                else if (d.price < 5000) priceRanges['3,000～5,000']++;
+                else if (d.price < 7000) priceRanges['5,000～7,000']++;
+                else if (d.price < 10000) priceRanges['7,000～10,000']++;
+                else if (d.price < 15000) priceRanges['10,000～15,000']++;
+                else if (d.price < 20000) priceRanges['15,000～20,000']++;
+                else if (d.price < 30000) priceRanges['20,000～30,000']++;
+                else priceRanges['30,000～']++;
+            });
+
+            if (soldPriceRangeChartInstance) soldPriceRangeChartInstance.destroy();
+            soldPriceRangeChartInstance = new Chart(document.getElementById('soldPriceRangeChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(priceRanges),
+                    datasets: [{
+                        label: '成約件数',
+                        data: Object.values(priceRanges),
+                        backgroundColor: 'rgba(201, 169, 98, 0.8)',
+                        borderColor: 'rgba(201, 169, 98, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: '価格帯 (万円)' } },
+                        y: { beginAtZero: true, title: { display: true, text: '成約件数 (件)' } }
+                    }
+                }
+            });
+
+            // 成約推移（日別）- マーケットの動きを把握
+            const dateStats = {};
+            data.forEach(d => {
+                if (d.soldDate) {
+                    if (!dateStats[d.soldDate]) {
+                        dateStats[d.soldDate] = { count: 0, total: 0 };
+                    }
+                    dateStats[d.soldDate].count++;
+                    dateStats[d.soldDate].total += d.price;
+                }
+            });
+            const sortedDates = Object.keys(dateStats).sort();
+
+            if (soldTrendChartInstance) soldTrendChartInstance.destroy();
+            soldTrendChartInstance = new Chart(document.getElementById('soldTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [
+                        {
+                            label: '成約件数',
+                            data: sortedDates.map(d => dateStats[d].count),
+                            borderColor: 'rgba(5, 31, 50, 1)',
+                            backgroundColor: 'rgba(5, 31, 50, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '成約総額(億円)',
+                            data: sortedDates.map(d => dateStats[d].total / 10000),
+                            borderColor: 'rgba(45, 139, 122, 1)',
+                            backgroundColor: 'rgba(45, 139, 122, 0.1)',
+                            fill: false,
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { title: { display: true, text: '成約日' } },
+                        y: { beginAtZero: true, position: 'left', title: { display: true, text: '件数' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '総額(億円)' } }
+                    }
+                }
+            });
+
+            // 間取別成約分布
+            // まず在庫物件の間取別件数を計算
+            const layoutInventory = {};
+            allRawData.forEach(d => {
+                const layout = d.layout || '不明';
+                if (!layoutInventory[layout]) layoutInventory[layout] = 0;
+                layoutInventory[layout]++;
+            });
+
+            // 成約物件の間取別件数を計算
+            const layoutSold = {};
+            data.forEach(d => {
+                const layout = d.layout || '不明';
+                if (!layoutSold[layout]) layoutSold[layout] = 0;
+                layoutSold[layout]++;
+            });
+
+            // 全ての間取をマージして件数順にソート
+            const allLayouts = [...new Set([...Object.keys(layoutInventory), ...Object.keys(layoutSold)])];
+            const layoutData = allLayouts.map(layout => ({
+                layout: layout,
+                sold: layoutSold[layout] || 0,
+                inventory: layoutInventory[layout] || 0,
+                ratio: layoutInventory[layout] > 0 ? ((layoutSold[layout] || 0) / layoutInventory[layout] * 100) : 0
+            })).sort((a, b) => b.sold - a.sold).slice(0, 12); // 上位12件まで表示
+
+            if (soldLayoutChartInstance) soldLayoutChartInstance.destroy();
+            soldLayoutChartInstance = new Chart(document.getElementById('soldLayoutChart'), {
+                type: 'bar',
+                data: {
+                    labels: layoutData.map(d => d.layout),
+                    datasets: [
+                        {
+                            label: '成約件数',
+                            data: layoutData.map(d => d.sold),
+                            backgroundColor: 'rgba(74, 111, 165, 0.8)',
+                            borderColor: 'rgba(74, 111, 165, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '在庫に占める割合(%)',
+                            data: layoutData.map(d => d.ratio),
+                            type: 'line',
+                            borderColor: 'rgba(199, 91, 91, 1)',
+                            backgroundColor: 'rgba(199, 91, 91, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            pointBackgroundColor: 'rgba(199, 91, 91, 1)',
+                            pointRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'top' },
+                        title: { display: true, text: '間取別の成約傾向と在庫比率', font: { size: 12 } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, position: 'left', title: { display: true, text: '成約件数 (件)' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '在庫に占める割合 (%)' } }
+                    }
+                }
+            });
+
+            // 面積帯別成約件数（需要の高い面積帯を把握）- 坪単位
+            const areaRanges = {
+                '～10坪': 0, '10～15坪': 0, '15～20坪': 0, '20～30坪': 0, '30坪～': 0
+            };
+            data.forEach(d => {
+                if (d.area <= 10) areaRanges['～10坪']++;
+                else if (d.area <= 15) areaRanges['10～15坪']++;
+                else if (d.area <= 20) areaRanges['15～20坪']++;
+                else if (d.area <= 30) areaRanges['20～30坪']++;
+                else areaRanges['30坪～']++;
+            });
+
+            if (soldAreaRangeChartInstance) soldAreaRangeChartInstance.destroy();
+            soldAreaRangeChartInstance = new Chart(document.getElementById('soldAreaRangeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(areaRanges),
+                    datasets: [{
+                        data: Object.values(areaRanges),
+                        backgroundColor: [
+                            'rgba(5, 31, 50, 0.85)',
+                            'rgba(15, 76, 117, 0.85)',
+                            'rgba(45, 139, 122, 0.85)',
+                            'rgba(201, 169, 98, 0.85)',
+                            'rgba(139, 115, 85, 0.85)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' },
+                        title: { display: true, text: '需要の高い面積帯（坪）', font: { size: 12 } }
+                    }
+                }
+            });
+
+            // 専有面積（坪） vs 価格 散布図（成約物件）
+            if (soldScatterAreaChartInstance) soldScatterAreaChartInstance.destroy();
+            soldScatterAreaChartInstance = new Chart(document.getElementById('soldScatterAreaChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: districts.map(district => ({
+                        label: district,
+                        data: data.filter(d => d.district === district).map(d => ({ x: d.area, y: d.price })),
+                        backgroundColor: districtColors[district],
+                        pointRadius: 4
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12 } }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: '専有面積 (坪)' } },
+                        y: { title: { display: true, text: '価格 (万円)' } }
+                    }
+                }
+            });
+
+            // 商号別成約ランキング
+            const sellerStats = {};
+            data.forEach(d => {
+                const company = d.company || '不明';
+                if (!sellerStats[company]) {
+                    sellerStats[company] = { count: 0, total: 0 };
+                }
+                sellerStats[company].count++;
+                sellerStats[company].total += d.price;
+            });
+
+            // 総額順TOP15
+            const sellerByTotal = Object.entries(sellerStats)
+                .map(([company, stats]) => ({ company, ...stats }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 15);
+
+            // 件数順TOP15
+            const sellerByCount = Object.entries(sellerStats)
+                .map(([company, stats]) => ({ company, ...stats }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 15);
+
+            if (soldSellerTotalChartInstance) soldSellerTotalChartInstance.destroy();
+            soldSellerTotalChartInstance = new Chart(document.getElementById('soldSellerTotalChart'), {
+                type: 'bar',
+                data: {
+                    labels: sellerByTotal.map(d => d.company.substring(0, 12) + (d.company.length > 12 ? '...' : '')),
+                    datasets: [{
+                        label: '成約総額(億円)',
+                        data: sellerByTotal.map(d => d.total / 10000),
+                        backgroundColor: 'rgba(201, 169, 98, 0.8)',
+                        borderColor: 'rgba(201, 169, 98, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const idx = context.dataIndex;
+                                    return `件数: ${sellerByTotal[idx].count}件`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, title: { display: true, text: '成約総額 (億円)' } }
+                    }
+                }
+            });
+
+            if (soldSellerCountChartInstance) soldSellerCountChartInstance.destroy();
+            soldSellerCountChartInstance = new Chart(document.getElementById('soldSellerCountChart'), {
+                type: 'bar',
+                data: {
+                    labels: sellerByCount.map(d => d.company.substring(0, 12) + (d.company.length > 12 ? '...' : '')),
+                    datasets: [{
+                        label: '成約件数',
+                        data: sellerByCount.map(d => d.count),
+                        backgroundColor: 'rgba(45, 139, 122, 0.8)',
+                        borderColor: 'rgba(45, 139, 122, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const idx = context.dataIndex;
+                                    return `総額: ${(sellerByCount[idx].total / 10000).toFixed(1)}億円`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, title: { display: true, text: '成約件数' } }
+                    }
+                }
+            });
+        }
+
+        // 成約済み物件リスト用フィルター適用
+        function applySoldListFilter() {
+            const district = document.getElementById('sold-list-filter-district').value;
+            const building = document.getElementById('sold-list-filter-building').value.toLowerCase();
+            const company = document.getElementById('sold-list-filter-company').value.toLowerCase();
+            const layout = document.getElementById('sold-list-filter-layout').value;
+            const priceRange = parseRangeValue(document.getElementById('sold-list-filter-price').value);
+            const areaRange = parseRangeValue(document.getElementById('sold-list-filter-area').value);
+            const ageRange = parseRangeValue(document.getElementById('sold-list-filter-age').value);
+
+            filteredSoldProperties = allSoldProperties.filter(p => {
+                if (district && p.district !== district) return false;
+                if (building && !p.building.toLowerCase().includes(building)) return false;
+                if (company && !p.company.toLowerCase().includes(company)) return false;
+                if (layout && !p.layout.includes(layout)) return false;
+                if (p.price < priceRange.min || p.price > priceRange.max) return false;
+                if (p.area < areaRange.min || p.area > areaRange.max) return false;
+                if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
+                return true;
+            });
+
+            // フィルター通知表示
+            const totalCount = allSoldProperties.length;
+            const filteredCount = filteredSoldProperties.length;
+            if (filteredCount < totalCount) {
+                document.getElementById('sold-list-filter-notice').textContent = `(フィルター適用中: 全${formatNumber(totalCount)}件中)`;
+            } else {
+                document.getElementById('sold-list-filter-notice').textContent = '';
+            }
+
+            soldCurrentPage = 1;
+            sortSoldList();
+        }
+
+        // 成約済み物件リスト用フィルターリセット
+        function resetSoldListFilter() {
+            document.getElementById('sold-list-filter-district').value = '';
+            document.getElementById('sold-list-filter-building').value = '';
+            document.getElementById('sold-list-filter-company').value = '';
+            document.getElementById('sold-list-filter-layout').value = '';
+            document.getElementById('sold-list-filter-price').value = '';
+            document.getElementById('sold-list-filter-area').value = '';
+            document.getElementById('sold-list-filter-age').value = '';
+            document.getElementById('sold-list-filter-notice').textContent = '';
+            filteredSoldProperties = [...allSoldProperties];
+            soldCurrentPage = 1;
+            sortSoldList();
+        }
+
+        // 成約済み物件ソート
+        function sortSoldList() {
+            const sortValue = document.getElementById('sold-sort-select').value;
+            const [field, order] = sortValue.split('-');
+            filteredSoldProperties.sort((a, b) => {
+                let valA, valB;
+                if (field === 'id') { valA = a.id; valB = b.id; }
+                else if (field === 'price') { valA = a.price; valB = b.price; }
+                else if (field === 'soldDate') { valA = a.soldDate; valB = b.soldDate; }
+                
+                if (field === 'soldDate') {
+                    // 日付文字列の比較
+                    if (valA > valB) return order === 'asc' ? 1 : -1;
+                    if (valA < valB) return order === 'asc' ? -1 : 1;
+                    return 0;
+                }
+                return order === 'asc' ? valA - valB : valB - valA;
+            });
+            soldCurrentPage = 1;
+            renderSoldList();
+        }
+
+        // 成約済み物件ページネーション描画
+        function renderSoldPagination(totalPages) {
+            const container = document.getElementById('sold-pagination');
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+            
+            let html = `<button onclick="goToSoldPage(${soldCurrentPage - 1})" ${soldCurrentPage === 1 ? 'disabled' : ''}>← 前へ</button>`;
+            const maxButtons = 5;
+            let startPage = Math.max(1, soldCurrentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+            if (endPage - startPage < maxButtons - 1) startPage = Math.max(1, endPage - maxButtons + 1);
+
+            if (startPage > 1) html += `<button onclick="goToSoldPage(1)">1</button><span>...</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button onclick="goToSoldPage(${i})" class="${i === soldCurrentPage ? 'active' : ''}">${i}</button>`;
+            }
+            if (endPage < totalPages) html += `<span>...</span><button onclick="goToSoldPage(${totalPages})">${totalPages}</button>`;
+            html += `<button onclick="goToSoldPage(${soldCurrentPage + 1})" ${soldCurrentPage === totalPages ? 'disabled' : ''}>次へ →</button>`;
+            container.innerHTML = html;
+        }
+
+        function goToSoldPage(page) { soldCurrentPage = page; renderSoldList(); }
+
+        // 成約済み物件CSV出力
+        function exportSoldCSV() {
+            const headers = ['成約日','物件番号','区','建物名','所在階','間取','価格','専有面積(坪)','築年数','商号'];
+            const rows = filteredSoldProperties.map(p => [p.soldDate, p.id, p.district, p.building, p.floor, p.layout, p.priceStr, p.areaStr, p.age >= 0 ? p.age : '', p.company]);
+            const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'sold_properties.csv';
+            link.click();
+        }
+
+        // フィルターアコーディオントグル
+        function toggleFilter(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.classList.toggle('collapsed');
+                // コンテンツの高さを設定
+                const content = section.querySelector('.filter-content');
+                if (content) {
+                    if (section.classList.contains('collapsed')) {
+                        content.style.maxHeight = '0';
+                    } else {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                    }
+                }
+            }
+        }
+
+        // レスポンシブ時のフィルター初期化
+        function initFilterAccordions() {
+            const isMobile = window.innerWidth <= 768;
+            document.querySelectorAll('.filter-section').forEach(section => {
+                const content = section.querySelector('.filter-content');
+                if (content) {
+                    if (isMobile) {
+                        // モバイルでは閉じた状態で開始
+                        section.classList.add('collapsed');
+                        content.style.maxHeight = '0';
+                    } else {
+                        // デスクトップでは開いた状態
+                        section.classList.remove('collapsed');
+                        content.style.maxHeight = 'none';
+                    }
+                }
+            });
+        }
+
+        // ウィンドウリサイズ時の処理
+        window.addEventListener('resize', () => {
+            initFilterAccordions();
+        });
+
+        // スクロールトップ
+        function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        window.addEventListener('scroll', () => {
+            const btn = document.querySelector('.back-to-top-btn');
+            btn.style.display = window.scrollY > 300 ? 'block' : 'none';
+        });
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            initFilterAccordions();
+        });
+    </script>
+</body>
+</html>
