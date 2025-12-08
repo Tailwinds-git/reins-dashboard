@@ -886,17 +886,117 @@
             .filter-grid { grid-template-columns: 1fr; }
             .chart-container { height: 280px; }
             .card { padding: var(--space-md); }
-            th, td { padding: 12px 14px; font-size: 0.75rem; }
+            th, td { padding: 10px 8px; font-size: 0.7rem; }
             .filter-toggle { display: flex; }
             .filter-header { padding-bottom: 0; }
             .filter-section.collapsed { padding-bottom: var(--space-md); }
+            
+            /* 商号別ランキングセクション用SP対応 */
+            .seller-stats { 
+                grid-template-columns: 1fr;
+                gap: var(--space-sm);
+                padding: var(--space-md);
+            }
+            .seller-stat {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: left;
+                padding: var(--space-sm) 0;
+                border-bottom: 1px solid var(--border-subtle);
+            }
+            .seller-stat:last-child {
+                border-bottom: none;
+            }
+            .seller-stat-value {
+                font-size: 1.4rem;
+                order: 2;
+            }
+            .seller-stat-label {
+                font-size: 0.7rem;
+                margin-top: 0;
+                order: 1;
+            }
+            
+            /* ランキングタブSP対応 */
+            .ranking-tabs { 
+                flex-wrap: wrap;
+                gap: 0;
+            }
+            .ranking-tab { 
+                flex: 1;
+                min-width: 100px;
+                padding: 10px 12px;
+                font-size: 0.65rem;
+                text-align: center;
+                white-space: nowrap;
+            }
+            .ranking-tab:nth-child(3) {
+                border-right: 1px solid var(--border);
+            }
+            
+            /* テーブル横スクロール対応強化 */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .table-container table {
+                min-width: 600px;
+            }
+            
+            /* results-count SP対応 */
+            .results-count {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-sm);
+            }
+            .results-count > div:last-child {
+                width: 100%;
+                justify-content: space-between;
+            }
         }
 
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: 1fr; }
             .stat-value { font-size: 2rem; }
             .ranking-tabs { flex-wrap: wrap; }
-            .ranking-tab { flex: 1; min-width: 80px; text-align: center; }
+            .ranking-tab { 
+                flex: 1 1 calc(50% - 1px); 
+                min-width: 0;
+                padding: 10px 8px;
+                font-size: 0.6rem;
+            }
+            .ranking-tab:nth-child(2) {
+                border-right: 1px solid var(--border);
+            }
+            .ranking-tab:nth-child(3) {
+                border-top: none;
+                flex: 1 1 100%;
+            }
+            
+            /* テーブルさらにコンパクトに */
+            th, td { padding: 8px 6px; font-size: 0.65rem; }
+            .table-container table {
+                min-width: 500px;
+            }
+            
+            /* 売主統計値のサイズ調整 */
+            .seller-stat-value {
+                font-size: 1.2rem;
+            }
+            
+            /* チャートコンテナの高さ調整 */
+            .chart-container { height: 250px; }
+            
+            /* ソートセレクト、エクスポートボタンのSP対応 */
+            .sort-select {
+                font-size: 0.7rem;
+                padding: 8px 10px;
+            }
+            .export-btn {
+                font-size: 0.65rem;
+                padding: 8px 12px;
+            }
         }
 
         /* スパークライン */
@@ -2139,8 +2239,8 @@
     </div>
 
     <footer>
-        <p style="font-family: var(--font-display); font-size: 1.1rem; color: var(--text-primary); margin-bottom: 8px; letter-spacing: 0.15em;">ESTATE CORE</p>
-        <p>Tokyo 6 Districts Real Estate Analytics &nbsp;—&nbsp; © 2025</p>
+        <p style="font-family: var(--font-display); font-size: 1.1rem; color: var(--text-primary); margin-bottom: 8px; letter-spacing: 0.15em;">REINS DASHDOARD</p>
+        <p>© 2025Tokyo 6 Districts Real Estate Analytics</p>
     </footer>
     <button class="back-to-top-btn" onclick="scrollToTop()">↑</button>
 
