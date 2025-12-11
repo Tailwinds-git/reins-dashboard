@@ -19,6 +19,16 @@ OUTPUT_HEADERS = [
     '坪単価', '沿線駅', '交通', '商号', '築年月', '電話番号', '差分種別', '差分検出日'
 ]
 
+def sanitize_value(value):
+    """
+    値から改行を除去してCSVパースエラーを防ぐ
+    改行は半角スペースに置換
+    """
+    if value is None:
+        return ''
+    # 改行（CR, LF, CRLF）をスペースに置換
+    return str(value).replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+
 def load_csv(filepath):
     """CSVを読み込み、物件番号をキーとした辞書を作成"""
     data = {}
@@ -35,28 +45,28 @@ def load_csv(filepath):
     return data
 
 def create_output_row(row, diff_type, detection_date):
-    """出力用の行を作成"""
+    """出力用の行を作成（改行を除去）"""
     return [
-        row.get('No', ''),
-        row.get('物件番号', ''),
-        row.get('物件種目', ''),
-        row.get('専有面積', ''),
-        row.get('所在地', ''),
-        row.get('取引態様', ''),
-        row.get('価格', ''),
-        row.get('用途地域', ''),
-        row.get('㎡単価', ''),
-        row.get('建物名', ''),
-        row.get('所在階', ''),
-        row.get('間取', ''),
-        row.get('取引状況', ''),
-        row.get('管理費', ''),
-        row.get('坪単価', ''),
-        row.get('沿線駅', ''),
-        row.get('交通', ''),
-        row.get('商号', ''),
-        row.get('築年月', ''),
-        row.get('電話番号', ''),
+        sanitize_value(row.get('No', '')),
+        sanitize_value(row.get('物件番号', '')),
+        sanitize_value(row.get('物件種目', '')),
+        sanitize_value(row.get('専有面積', '')),
+        sanitize_value(row.get('所在地', '')),
+        sanitize_value(row.get('取引態様', '')),
+        sanitize_value(row.get('価格', '')),
+        sanitize_value(row.get('用途地域', '')),
+        sanitize_value(row.get('㎡単価', '')),
+        sanitize_value(row.get('建物名', '')),
+        sanitize_value(row.get('所在階', '')),
+        sanitize_value(row.get('間取', '')),
+        sanitize_value(row.get('取引状況', '')),
+        sanitize_value(row.get('管理費', '')),
+        sanitize_value(row.get('坪単価', '')),
+        sanitize_value(row.get('沿線駅', '')),
+        sanitize_value(row.get('交通', '')),
+        sanitize_value(row.get('商号', '')),
+        sanitize_value(row.get('築年月', '')),
+        sanitize_value(row.get('電話番号', '')),
         diff_type,
         detection_date
     ]
