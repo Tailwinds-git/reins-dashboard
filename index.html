@@ -97,15 +97,17 @@
             color: var(--primary);
         }
 
-        /* ヘッダーナビゲーション */
-        header { 
+        /* ヘッダーナビゲーション（iOS向けGPUアクセラレーション最適化） */
+        header {
             background: rgba(10, 22, 40, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border); 
-            position: sticky; 
-            top: 0; 
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
             z-index: 100;
+            transform: translateZ(0);
+            will-change: transform;
         }
         .header-inner { 
             max-width: 1440px; 
@@ -990,14 +992,23 @@
                 transform: translateY(0);
             }
         }
-        .table-container tbody tr {
-            animation: fadeInRow 0.3s ease forwards;
+        /* iOS向けにテーブル行アニメーションを無効化（パフォーマンス向上） */
+        @supports (-webkit-touch-callout: none) {
+            .table-container tbody tr {
+                animation: none;
+            }
         }
-        .table-container tbody tr:nth-child(1) { animation-delay: 0.02s; }
-        .table-container tbody tr:nth-child(2) { animation-delay: 0.04s; }
-        .table-container tbody tr:nth-child(3) { animation-delay: 0.06s; }
-        .table-container tbody tr:nth-child(4) { animation-delay: 0.08s; }
-        .table-container tbody tr:nth-child(5) { animation-delay: 0.1s; }
+        /* 非iOS環境のみアニメーション */
+        @supports not (-webkit-touch-callout: none) {
+            .table-container tbody tr {
+                animation: fadeInRow 0.3s ease forwards;
+            }
+            .table-container tbody tr:nth-child(1) { animation-delay: 0.02s; }
+            .table-container tbody tr:nth-child(2) { animation-delay: 0.04s; }
+            .table-container tbody tr:nth-child(3) { animation-delay: 0.06s; }
+            .table-container tbody tr:nth-child(4) { animation-delay: 0.08s; }
+            .table-container tbody tr:nth-child(5) { animation-delay: 0.1s; }
+        }
 
         /* グラデーションオーバーレイ（テーブルスクロール用） */
         .table-container::after {
@@ -2229,33 +2240,53 @@
         let sellerSoldAreaRangeChartInstance = null;
         let sellerSoldScatterAreaChartInstance = null;
 
+        // iOS判定（パフォーマンス最適化用）
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        // Chart.js更新用ヘルパー関数（destroy/recreateの代わりにupdateを使用してiOSでのフリーズを回避）
+        function updateOrCreateChart(instance, canvasId, config) {
+            if (instance) {
+                instance.data = config.data;
+                instance.options = config.options;
+                instance.update('none'); // アニメーションなしで即座更新
+                return instance;
+            }
+            return new Chart(document.getElementById(canvasId), config);
+        }
+
         // 数値フォーマット
         function formatNumber(num) { return num.toLocaleString('ja-JP'); }
 
-        // カウントアップアニメーション
+        // カウントアップアニメーション（iOS最適化版）
         function animateCountUp(element, targetValue, duration = 1000, isDecimal = false, suffix = '') {
+            // iOS判定: アニメーションをスキップして直接表示（パフォーマンス向上）
+            if (isIOS) {
+                element.textContent = (isDecimal ? targetValue.toFixed(1) : formatNumber(Math.round(targetValue))) + suffix;
+                return;
+            }
+
             const startValue = 0;
             const startTime = performance.now();
-            
+
             function update(currentTime) {
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
-                
+
                 // イージング関数（easeOutExpo）
                 const easeProgress = 1 - Math.pow(2, -10 * progress);
                 const currentValue = startValue + (targetValue - startValue) * easeProgress;
-                
+
                 if (isDecimal) {
                     element.textContent = currentValue.toFixed(1) + suffix;
                 } else {
                     element.textContent = formatNumber(Math.round(currentValue)) + suffix;
                 }
-                
+
                 if (progress < 1) {
                     requestAnimationFrame(update);
                 }
             }
-            
+
             requestAnimationFrame(update);
         }
 
@@ -2707,12 +2738,11 @@
             document.getElementById('seller-total-amount').innerHTML = `${totalAmount.toFixed(1)}<span class="stat-unit">億円</span>`;
             document.getElementById('seller-property-count').innerHTML = `${formatNumber(propertyCount)}<span class="stat-unit">件</span>`;
 
-            // チャート更新
+            // チャート更新（updateOrCreateChartでiOSフリーズ回避）
             const sellerByTotal = [...allSellers].sort((a, b) => b['物件総額_億円'] - a['物件総額_億円']).slice(0, 15);
             const sellerByCount = [...allSellers].sort((a, b) => b['物件数'] - a['物件数']).slice(0, 15);
 
-            if (sellerTotalChartInstance) sellerTotalChartInstance.destroy();
-            sellerTotalChartInstance = new Chart(document.getElementById('sellerTotalChart'), {
+            sellerTotalChartInstance = updateOrCreateChart(sellerTotalChartInstance, 'sellerTotalChart', {
                 type: 'bar',
                 data: {
                     labels: sellerByTotal.map(d => d['商号'].substring(0, 12) + (d['商号'].length > 12 ? '...' : '')),
@@ -2721,8 +2751,7 @@
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, title: { display: true, text: '物件総額 (億円)' } } } }
             });
 
-            if (sellerCountChartInstance) sellerCountChartInstance.destroy();
-            sellerCountChartInstance = new Chart(document.getElementById('sellerCountChart'), {
+            sellerCountChartInstance = updateOrCreateChart(sellerCountChartInstance, 'sellerCountChart', {
                 type: 'bar',
                 data: {
                     labels: sellerByCount.map(d => d['商号'].substring(0, 12) + (d['商号'].length > 12 ? '...' : '')),
@@ -2749,19 +2778,25 @@
             updateSellerStats('', '');
         }
 
-        // ランキングテーブル描画
+        // ランキングテーブル描画（DocumentFragmentでiOSリフロー削減）
         function renderRankingTable(sortBy = 'total') {
             const tbody = document.getElementById('sellerRankingBody');
             let sortedData;
             if (sortBy === 'total') sortedData = [...allSellers].sort((a,b) => b['物件総額_億円'] - a['物件総額_億円']);
             else if (sortBy === 'count') sortedData = [...allSellers].sort((a,b) => b['物件数'] - a['物件数']);
             else sortedData = [...allSellers].sort((a,b) => b['平均単価_万円'] - a['平均単価_万円']);
-            
-            tbody.innerHTML = sortedData.map((item, index) => {
+
+            // DocumentFragmentで一括追加（iOSでのリフロー削減）
+            const fragment = document.createDocumentFragment();
+            sortedData.forEach((item, index) => {
                 const rank = index + 1;
-                let rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
-                return `<tr><td><span class="rank-badge ${rankClass}">${rank}</span></td><td><span class="company-link" onclick="filterByCompany('${item['商号'].replace(/'/g, "\\'")}')">${item['商号']}</span></td><td class="text-right value-highlight">${item['物件総額_億円'].toFixed(1)}</td><td class="text-right">${item['物件数']}</td><td class="text-right">${formatNumber(Math.round(item['平均単価_万円']))}</td></tr>`;
-            }).join('');
+                const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td><span class="rank-badge ${rankClass}">${rank}</span></td><td><span class="company-link" onclick="filterByCompany('${item['商号'].replace(/'/g, "\\'")}')">${item['商号']}</span></td><td class="text-right value-highlight">${item['物件総額_億円'].toFixed(1)}</td><td class="text-right">${item['物件数']}</td><td class="text-right">${formatNumber(Math.round(item['平均単価_万円']))}</td>`;
+                fragment.appendChild(tr);
+            });
+            tbody.innerHTML = '';
+            tbody.appendChild(fragment);
         }
 
         // 商号で物件リストをフィルター
@@ -2826,8 +2861,7 @@
             const wardCounts = {};
             data.forEach(d => wardCounts[d.district] = (wardCounts[d.district] || 0) + 1);
 
-            if (sellerWardChartInstance) sellerWardChartInstance.destroy();
-            sellerWardChartInstance = new Chart(document.getElementById('sellerWardChart'), {
+            sellerWardChartInstance = updateOrCreateChart(sellerWardChartInstance, 'sellerWardChart', {
                 type: 'bar',
                 data: {
                     labels: Object.keys(wardCounts),
@@ -2849,8 +2883,7 @@
                 else priceRanges['1億〜']++;
             });
 
-            if (sellerPriceChartInstance) sellerPriceChartInstance.destroy();
-            sellerPriceChartInstance = new Chart(document.getElementById('sellerPriceChart'), {
+            sellerPriceChartInstance = updateOrCreateChart(sellerPriceChartInstance, 'sellerPriceChart', {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(priceRanges),
@@ -2866,8 +2899,7 @@
             const layoutCounts = {};
             data.forEach(d => layoutCounts[d.layout] = (layoutCounts[d.layout] || 0) + 1);
 
-            if (sellerLayoutChartInstance) sellerLayoutChartInstance.destroy();
-            sellerLayoutChartInstance = new Chart(document.getElementById('sellerLayoutChart'), {
+            sellerLayoutChartInstance = updateOrCreateChart(sellerLayoutChartInstance, 'sellerLayoutChart', {
                 type: 'bar',
                 data: {
                     labels: Object.keys(layoutCounts),
@@ -2880,8 +2912,7 @@
             });
 
             // 築年数 vs 価格散布図
-            if (sellerScatterAgeChartInstance) sellerScatterAgeChartInstance.destroy();
-            sellerScatterAgeChartInstance = new Chart(document.getElementById('sellerScatterAgeChart'), {
+            sellerScatterAgeChartInstance = updateOrCreateChart(sellerScatterAgeChartInstance, 'sellerScatterAgeChart', {
                 type: 'scatter',
                 data: {
                     datasets: [{
