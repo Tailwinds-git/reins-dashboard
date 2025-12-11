@@ -6,7 +6,7 @@ from pathlib import Path
 COMPARISON_PAIRS = [
     ('reins_20251206.csv', 'reins_20251207.csv', '2025-12-07'),
     ('reins_20251207.csv', 'reins_20251208.csv', '2025-12-08'),
-    ('reins_20251208.csv', 'reins_20251211.csv', '2025-12-11'),
+    ('reins_20251208.csv', 'reins_20251210.csv', '2025-12-10'),
 ]
 
 # 出力ファイル
