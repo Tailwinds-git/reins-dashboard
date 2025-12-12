@@ -2243,6 +2243,13 @@
         // iOS判定（パフォーマンス最適化用）
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+        // 全角英字を半角に変換（間取りフィルター用）
+        function normalizeLayout(str) {
+            return str.replace(/[Ａ-Ｚａ-ｚ]/g, s =>
+                String.fromCharCode(s.charCodeAt(0) - 0xFEE0)
+            );
+        }
+
         // Chart.js更新用ヘルパー関数（destroy/recreateの代わりにupdateを使用してiOSでのフリーズを回避）
         function updateOrCreateChart(instance, canvasId, config) {
             if (instance) {
@@ -2645,7 +2652,7 @@
             statsFilteredData = allRawData.filter(p => {
                 if (torihiki && p.torihiki !== torihiki) return false;
                 if (district && p.district !== district) return false;
-                if (layout && !p.layout.includes(layout)) return false;
+                if (layout && !normalizeLayout(p.layout).includes(layout)) return false;
                 if (p.price < priceRange.min || p.price > priceRange.max) return false;
                 if (p.area < areaRange.min || p.area > areaRange.max) return false;
                 if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
@@ -2940,7 +2947,7 @@
             sellerStatsFilteredData = allRawData.filter(d => {
                 if (d.torihiki !== '売主') return false;
                 if (wardFilter && d.district !== wardFilter) return false;
-                if (layoutFilter && !d.layout.includes(layoutFilter)) return false;
+                if (layoutFilter && !normalizeLayout(d.layout).includes(layoutFilter)) return false;
                 if (d.price < priceRange.min || d.price > priceRange.max) return false;
                 const areaSqm = d.area * 3.30579;
                 if (areaSqm < areaRange.min || areaSqm > areaRange.max) return false;
@@ -3142,7 +3149,7 @@
 
             sellerFilteredSoldProperties = sellerPeriodFilteredSoldProperties.filter(d => {
                 if (districtFilter && d.district !== districtFilter) return false;
-                if (layoutFilter && !d.layout.includes(layoutFilter)) return false;
+                if (layoutFilter && !normalizeLayout(d.layout).includes(layoutFilter)) return false;
                 if (d.price < priceRange.min || d.price > priceRange.max) return false;
                 const areaSqm = d.area * 3.30579;
                 if (areaSqm < areaRange.min || areaSqm > areaRange.max) return false;
@@ -3258,7 +3265,7 @@
                 if (torihiki && p.torihiki !== torihiki) return false;
                 if (building && !p.building.toLowerCase().includes(building)) return false;
                 if (company && !p.company.toLowerCase().includes(company)) return false;
-                if (layout && !p.layout.includes(layout)) return false;
+                if (layout && !normalizeLayout(p.layout).includes(layout)) return false;
                 if (p.price < priceRange.min || p.price > priceRange.max) return false;
                 if (p.area < areaRange.min || p.area > areaRange.max) return false;
                 if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
@@ -3711,7 +3718,7 @@
                 // 建物名フィルター
                 if (building && !p.building.toLowerCase().includes(building)) return false;
                 // 間取フィルター
-                if (layout && !p.layout.includes(layout)) return false;
+                if (layout && !normalizeLayout(p.layout).includes(layout)) return false;
                 // 価格フィルター
                 if (p.price < priceRange.min || p.price > priceRange.max) return false;
                 // 面積フィルター
@@ -4208,7 +4215,7 @@
                 if (district && p.district !== district) return false;
                 if (building && !p.building.toLowerCase().includes(building)) return false;
                 if (company && !p.company.toLowerCase().includes(company)) return false;
-                if (layout && !p.layout.includes(layout)) return false;
+                if (layout && !normalizeLayout(p.layout).includes(layout)) return false;
                 if (p.price < priceRange.min || p.price > priceRange.max) return false;
                 if (p.area < areaRange.min || p.area > areaRange.max) return false;
                 if (p.age >= 0 && (p.age < ageRange.min || p.age > ageRange.max)) return false;
@@ -4336,9 +4343,14 @@
             });
         }
 
-        // ウィンドウリサイズ時の処理
+        // ウィンドウリサイズ時の処理（幅が大きく変わった時のみアコーディオン初期化）
+        let lastWindowWidth = window.innerWidth;
         window.addEventListener('resize', () => {
-            initFilterAccordions();
+            // 幅の変化が100px以上の場合のみ（orientation変更等）
+            if (Math.abs(window.innerWidth - lastWindowWidth) > 100) {
+                initFilterAccordions();
+                lastWindowWidth = window.innerWidth;
+            }
         });
 
         // スクロールトップ
