@@ -1756,7 +1756,7 @@
             <!-- 成約済み物件リスト -->
             <div class="card">
                 <div class="card-title">成約済み物件リスト - 掲載終了（成約済み）となった物件</div>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※differences_master.csvの差分種別「削除」を成約済みとして表示しています</p>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※differences_master.csvの差分種別「削除」を成約済みとして表示しています（物件詳細は参照元ファイルから取得）</p>
                 
                 <!-- 成約済み物件リスト用フィルター -->
                 <div class="filter-section" id="sold-list-filter-section" style="margin-bottom:16px;box-shadow:none;padding:16px;background:var(--bg-main);">
@@ -1860,7 +1860,7 @@
                     <button class="time-btn" data-period="week">1週間前から</button>
                     <button class="time-btn" data-period="month">1か月前から</button>
                 </div>
-                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※デモデータ: 実際のシステムでは過去データとの差分比較により更新を検出します</p>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px;">※differences_master.csvの差分種別「更新」およびdifferences_updates.csvから更新情報を取得しています</p>
                 <div class="results-count"><div>更新物件数: <strong id="ul-result-count">0</strong>件</div></div>
                 <div class="table-container"><table><thead><tr><th>物件番号</th><th>建物名</th><th>更新内容</th><th>変更前</th><th>変更後</th><th>備考</th></tr></thead><tbody id="updateListBody"></tbody></table></div>
             </div>
@@ -2296,6 +2296,11 @@
         let sellerFilteredSoldProperties = [];
         let sellerSoldCurrentPeriodUnit = 'all';
         let sellerSoldCurrentPeriodValue = null;
+
+        // 更新物件用データ
+        let allUpdatedProperties = [];      // 全更新物件（master）
+        let allUpdateDetails = [];          // 全更新詳細（updates）
+        let filteredUpdatedProperties = []; // フィルター後の更新物件
 
         const districtColors = {
             "港区": "rgba(201, 169, 98, 0.9)",
@@ -3506,25 +3511,128 @@
             showToast(`${filteredProperties.length}件のデータをエクスポートしました`);
         }
 
-        // 更新物件リスト描画（デモデータ）
+        // 更新物件リスト描画（実データ対応版）
         function renderUpdateList(period) {
-            const demoUpdates = [
-                { id: 100137033376, building: 'ＴＨＥ　千代田麹町　ＴＯＷＥＲ', type: '価格変更', before: '15,480万円', after: '14,480万円', note: '1,000万円値下げ' },
-                { id: 100136640185, building: 'パークリュクス神田多町', type: '取引状況', before: '公開中', after: '申込あり', note: '' },
-                { id: 100135826653, building: 'クレイシア神田淡路町', type: '取引状況', before: '申込あり', after: '成約済み', note: '成約まで32日' },
-                { id: 100136978949, building: 'ワテラスタワーレジデンス', type: '価格変更', before: '29,800万円', after: '28,500万円', note: '1,300万円値下げ' },
-                { id: 100137022472, building: '玉柳・テシコ六番町ビル', type: '取引状況', before: '公開中', after: '成約済み', note: '成約まで45日' },
-            ];
+            // 期間でフィルタリング
+            const today = new Date();
+            let filtered = [...allUpdatedProperties];
             
-            let filtered = demoUpdates;
-            if (period === 'yesterday') filtered = demoUpdates.slice(0, 2);
-            else if (period === 'week') filtered = demoUpdates.slice(0, 4);
+            if (period === 'yesterday') {
+                // 昨日以降（直近1日）
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                filtered = filtered.filter(u => u.updateDate >= yesterdayStr);
+            } else if (period === 'week') {
+                // 1週間前から
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                const weekAgoStr = weekAgo.toISOString().split('T')[0];
+                filtered = filtered.filter(u => u.updateDate >= weekAgoStr);
+            } else if (period === 'month') {
+                // 1か月前から
+                const monthAgo = new Date(today);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                const monthAgoStr = monthAgo.toISOString().split('T')[0];
+                filtered = filtered.filter(u => u.updateDate >= monthAgoStr);
+            }
+
+            // 更新日の新しい順でソート
+            filtered.sort((a, b) => {
+                if (a.updateDate > b.updateDate) return -1;
+                if (a.updateDate < b.updateDate) return 1;
+                return 0;
+            });
 
             document.getElementById('ul-result-count').textContent = filtered.length;
             const tbody = document.getElementById('updateListBody');
-            tbody.innerHTML = filtered.map(u => {
-                let badge = u.type === '価格変更' ? (u.before > u.after ? 'update-price-down' : 'update-price-up') : 'update-status';
-                return `<tr><td>${u.id}</td><td>${u.building}</td><td><span class="update-badge ${badge}">${u.type}</span></td><td>${u.before}</td><td style="font-weight:600;">${u.after}</td><td>${u.note}</td></tr>`;
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px;">該当する更新物件がありません</td></tr>';
+                return;
+            }
+
+            // 各更新物件について、differences_updates.csvから詳細を取得して表示
+            const rows = [];
+            filtered.forEach(prop => {
+                // この物件の更新詳細を取得
+                const details = allUpdateDetails.filter(d => d['差分ID'] === prop.diffId);
+                
+                if (details.length === 0) {
+                    // 詳細がない場合はmasterの情報のみ表示
+                    rows.push({
+                        id: prop.id,
+                        building: prop.building,
+                        updateDate: prop.updateDate,
+                        type: prop.updateFieldList,
+                        before: '-',
+                        after: '-',
+                        note: `${prop.updateFieldCount}項目更新`
+                    });
+                } else {
+                    // 詳細がある場合は各フィールドの変更を表示
+                    details.forEach((detail, idx) => {
+                        const updateField = detail['更新フィールド'] || '';
+                        const beforeVal = detail['更新前'] || '';
+                        const afterVal = detail['更新後'] || '';
+                        
+                        // 更新タイプを判定
+                        let updateType = updateField;
+                        if (updateField === '価格' || updateField === '㎡単価' || updateField === '坪単価') {
+                            updateType = '価格変更';
+                        } else if (updateField === '取引状況') {
+                            updateType = '取引状況';
+                        }
+
+                        // 備考を生成
+                        let note = '';
+                        if (updateField === '価格') {
+                            const beforePrice = parsePrice(beforeVal);
+                            const afterPrice = parsePrice(afterVal);
+                            const diff = beforePrice - afterPrice;
+                            if (diff > 0) {
+                                note = `${formatNumber(diff)}万円値下げ`;
+                            } else if (diff < 0) {
+                                note = `${formatNumber(Math.abs(diff))}万円値上げ`;
+                            }
+                        }
+
+                        rows.push({
+                            id: idx === 0 ? prop.id : '', // 同一物件の2行目以降はID非表示
+                            building: idx === 0 ? prop.building : '', // 同一物件の2行目以降は建物名非表示
+                            updateDate: prop.updateDate,
+                            type: updateType,
+                            field: updateField,
+                            before: beforeVal,
+                            after: afterVal,
+                            note: note
+                        });
+                    });
+                }
+            });
+
+            tbody.innerHTML = rows.map(u => {
+                // バッジのスタイルを決定
+                let badgeClass = 'update-status';
+                if (u.type === '価格変更' || u.field === '価格') {
+                    // 価格の増減を判定
+                    const beforePrice = parsePrice(u.before);
+                    const afterPrice = parsePrice(u.after);
+                    badgeClass = beforePrice > afterPrice ? 'update-price-down' : 'update-price-up';
+                } else if (u.type === '取引状況' || u.field === '取引状況') {
+                    badgeClass = 'update-status';
+                }
+
+                const displayType = u.field || u.type;
+                
+                return `<tr>
+                    <td>${u.id}</td>
+                    <td>${u.building}</td>
+                    <td><span class="update-badge ${badgeClass}">${displayType}</span></td>
+                    <td>${u.before}</td>
+                    <td style="font-weight:600;">${u.after}</td>
+                    <td>${u.note}</td>
+                </tr>`;
             }).join('');
         }
 
@@ -3574,44 +3682,160 @@
             });
         });
 
-        // 成約済み物件データ読み込み
+        // 日次ファイルキャッシュ（物件番号をキーとした辞書）
+        const dailyFileCache = {};
+
+        // 日次ファイルを読み込んでキャッシュ
+        async function loadDailyFile(filename) {
+            if (dailyFileCache[filename]) {
+                return dailyFileCache[filename];
+            }
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    console.warn(`日次ファイル読み込み失敗: ${filename}`);
+                    return null;
+                }
+                const text = await response.text();
+                const data = parseCSV(text);
+                // 物件番号をキーとした辞書に変換
+                const dataMap = {};
+                data.forEach(row => {
+                    const propertyId = row['物件番号'];
+                    if (propertyId) {
+                        dataMap[propertyId] = row;
+                    }
+                });
+                dailyFileCache[filename] = dataMap;
+                return dataMap;
+            } catch (e) {
+                console.warn(`日次ファイル読み込みエラー: ${filename}`, e);
+                return null;
+            }
+        }
+
+        // 成約済み・更新物件データ読み込み（方式B対応版）
         async function loadSoldData() {
             try {
+                // differences_master.csv読み込み
                 const response = await fetch('differences_master.csv');
                 const text = await response.text();
                 const diffData = parseCSV(text);
                 
-                // 差分種別が「削除」のものを成約済みとして抽出
+                // differences_updates.csv読み込み
+                let updatesData = [];
+                try {
+                    const updatesResponse = await fetch('differences_updates.csv');
+                    if (updatesResponse.ok) {
+                        const updatesText = await updatesResponse.text();
+                        updatesData = parseCSV(updatesText);
+                        console.log(`differences_updates.csv: ${updatesData.length}件読み込み`);
+                    }
+                } catch (e) {
+                    console.warn('differences_updates.csv読み込みエラー:', e);
+                }
+
+                // 参照元ファイルの一覧を取得（重複排除）
+                const referenceFiles = [...new Set(diffData.map(row => row['参照元ファイル']).filter(f => f))];
+                console.log('参照元ファイル一覧:', referenceFiles);
+
+                // 全ての参照元ファイルを並列で読み込み
+                await Promise.all(referenceFiles.map(filename => loadDailyFile(filename)));
+
+                // 差分種別が「削除」のものを成約済みとして抽出し、参照元ファイルから詳細を取得
                 allSoldProperties = diffData
                     .filter(row => row['差分種別'] === '削除')
                     .map(row => {
-                        const price = parsePrice(row['価格']);
-                        const areaSqm = parseArea(row['専有面積']);
-                        const areaTsubo = sqmToTsubo(areaSqm);
-                        const age = calcAge(row['築年月']);
-                        const district = extractDistrict(row['所在地']);
+                        const propertyId = row['物件番号'];
+                        const referenceFile = row['参照元ファイル'];
                         const soldDate = row['差分検出日'] || '';
+                        const diffId = row['差分ID'] || '';
+
+                        // 参照元ファイルから物件詳細を取得
+                        const dailyData = dailyFileCache[referenceFile];
+                        const propertyDetail = dailyData ? dailyData[propertyId] : null;
+
+                        if (!propertyDetail) {
+                            console.warn(`物件詳細が見つかりません: ${propertyId} (${referenceFile})`);
+                            return null;
+                        }
+
+                        const price = parsePrice(propertyDetail['価格']);
+                        const areaSqm = parseArea(propertyDetail['専有面積']);
+                        const areaTsubo = sqmToTsubo(areaSqm);
+                        const age = calcAge(propertyDetail['築年月']);
+                        const district = extractDistrict(propertyDetail['所在地']);
                         const tsuboPrice = areaTsubo > 0 ? price / areaTsubo : 0;
                         
                         return {
-                            id: parseInt(row['物件番号']) || 0,
+                            id: parseInt(propertyId) || 0,
+                            diffId: diffId,
                             soldDate: soldDate,
+                            referenceFile: referenceFile,
                             district: district,
-                            building: row['建物名'] || '',
-                            floor: row['所在階'] || '',
-                            layout: row['間取'] || '',
+                            building: propertyDetail['建物名'] || '',
+                            floor: propertyDetail['所在階'] || '',
+                            layout: propertyDetail['間取'] || '',
                             price: price,
-                            priceStr: row['価格'] || '',
+                            priceStr: propertyDetail['価格'] || '',
                             area: areaTsubo,
                             areaSqm: areaSqm,
                             areaStr: areaTsubo.toFixed(2) + '坪',
                             age: age,
-                            company: row['商号'] || '',
-                            torihiki: row['取引態様'] || '',
+                            company: propertyDetail['商号'] || '',
+                            torihiki: propertyDetail['取引態様'] || '',
                             tsuboPrice: tsuboPrice
                         };
                     })
-                    .filter(d => d.id > 0);
+                    .filter(d => d && d.id > 0);
+
+                console.log(`成約済み物件: ${allSoldProperties.length}件読み込み完了`);
+
+                // 差分種別が「更新」のものを抽出し、参照元ファイルから詳細を取得
+                allUpdatedProperties = diffData
+                    .filter(row => row['差分種別'] === '更新')
+                    .map(row => {
+                        const propertyId = row['物件番号'];
+                        const referenceFile = row['参照元ファイル'];
+                        const updateDate = row['差分検出日'] || '';
+                        const diffId = row['差分ID'] || '';
+                        const updateFieldCount = parseInt(row['更新フィールド数']) || 0;
+                        const updateFieldList = row['更新フィールド一覧'] || '';
+
+                        // 参照元ファイルから物件詳細を取得
+                        const dailyData = dailyFileCache[referenceFile];
+                        const propertyDetail = dailyData ? dailyData[propertyId] : null;
+
+                        if (!propertyDetail) {
+                            console.warn(`更新物件詳細が見つかりません: ${propertyId} (${referenceFile})`);
+                            return null;
+                        }
+                        
+                        return {
+                            id: parseInt(propertyId) || 0,
+                            diffId: diffId,
+                            updateDate: updateDate,
+                            referenceFile: referenceFile,
+                            building: propertyDetail['建物名'] || '',
+                            district: extractDistrict(propertyDetail['所在地']),
+                            updateFieldCount: updateFieldCount,
+                            updateFieldList: updateFieldList
+                        };
+                    })
+                    .filter(d => d && d.id > 0);
+
+                console.log(`更新物件: ${allUpdatedProperties.length}件読み込み完了`);
+
+                // 更新詳細データを差分IDでグループ化
+                allUpdateDetails = updatesData;
+                
+                // 更新物件リストの初期表示
+                filteredUpdatedProperties = [...allUpdatedProperties].sort((a, b) => {
+                    if (a.updateDate > b.updateDate) return -1;
+                    if (a.updateDate < b.updateDate) return 1;
+                    return 0;
+                });
+                renderUpdateList('yesterday');
 
                 // 期間選択肢を生成
                 initializePeriodSelector();
@@ -3673,7 +3897,11 @@
                 allSellerSoldProperties = [];
                 sellerPeriodFilteredSoldProperties = [];
                 sellerFilteredSoldProperties = [];
+                allUpdatedProperties = [];
+                allUpdateDetails = [];
+                filteredUpdatedProperties = [];
                 renderSoldList();
+                renderUpdateList('yesterday');
             }
         }
         

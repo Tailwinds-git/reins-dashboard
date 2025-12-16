@@ -17,9 +17,11 @@ COMPARISON_PAIRS = [
 OUTPUT_MASTER_FILE = Path('differences_master.csv')
 OUTPUT_UPDATES_FILE = Path('differences_updates.csv')
 
-# 出力用ヘッダー（master）- 軽量版
+# 出力用ヘッダー（master）
 OUTPUT_MASTER_HEADERS = [
-    '差分ID', '物件番号', '差分種別', '差分検出日', '参照元ファイル',
+    '差分ID', 'No', '物件番号', '物件種目', '専有面積', '所在地', '取引態様', '価格',
+    '用途地域', '㎡単価', '建物名', '所在階', '間取', '取引状況', '管理費',
+    '坪単価', '沿線駅', '交通', '商号', '築年月', '電話番号', '差分種別', '差分検出日',
     '更新フィールド数', '更新フィールド一覧'
 ]
 
@@ -90,9 +92,9 @@ def detect_changes(old_row, new_row):
     return changes
 
 
-def create_master_row(diff_id, property_id, diff_type, detection_date, reference_file, update_info=None):
+def create_master_row(diff_id, row, diff_type, detection_date, update_info=None):
     """
-    master用の出力行を作成（軽量版）
+    master用の出力行を作成
     update_info: 更新の場合のみ {'count': 更新フィールド数, 'fields': 'フィールド一覧'}
     """
     update_count = ''
@@ -103,10 +105,28 @@ def create_master_row(diff_id, property_id, diff_type, detection_date, reference
     
     return [
         diff_id,
-        property_id,
+        sanitize_value(row.get('No', '')),
+        sanitize_value(row.get('物件番号', '')),
+        sanitize_value(row.get('物件種目', '')),
+        sanitize_value(row.get('専有面積', '')),
+        sanitize_value(row.get('所在地', '')),
+        sanitize_value(row.get('取引態様', '')),
+        sanitize_value(row.get('価格', '')),
+        sanitize_value(row.get('用途地域', '')),
+        sanitize_value(row.get('㎡単価', '')),
+        sanitize_value(row.get('建物名', '')),
+        sanitize_value(row.get('所在階', '')),
+        sanitize_value(row.get('間取', '')),
+        sanitize_value(row.get('取引状況', '')),
+        sanitize_value(row.get('管理費', '')),
+        sanitize_value(row.get('坪単価', '')),
+        sanitize_value(row.get('沿線駅', '')),
+        sanitize_value(row.get('交通', '')),
+        sanitize_value(row.get('商号', '')),
+        sanitize_value(row.get('築年月', '')),
+        sanitize_value(row.get('電話番号', '')),
         diff_type,
         detection_date,
-        reference_file,
         update_count,
         update_fields
     ]
@@ -170,31 +190,26 @@ def main():
             date_sequence[detection_date] = 0
         
         # 削除された物件を検出（旧にあって新にない = 成約済み等）
-        # 参照元: 旧ファイル（削除された物件は旧ファイルにのみ存在）
         deleted_ids = old_ids - new_ids
         print(f"   🔴 削除（成約済み等）: {len(deleted_ids)}件")
         
         for property_id in sorted(deleted_ids):
             date_sequence[detection_date] += 1
             diff_id = generate_diff_id(detection_date, date_sequence[detection_date])
-            all_master_rows.append(
-                create_master_row(diff_id, property_id, '削除', detection_date, old_file)
-            )
+            row = old_data[property_id]
+            all_master_rows.append(create_master_row(diff_id, row, '削除', detection_date))
         
         # 新規物件を検出（新にあって旧にない = 新規登録）
-        # 参照元: 新ファイル（新規物件は新ファイルにのみ存在）
         added_ids = new_ids - old_ids
         print(f"   🟢 新規登録: {len(added_ids)}件")
         
         for property_id in sorted(added_ids):
             date_sequence[detection_date] += 1
             diff_id = generate_diff_id(detection_date, date_sequence[detection_date])
-            all_master_rows.append(
-                create_master_row(diff_id, property_id, '新規', detection_date, new_file)
-            )
+            row = new_data[property_id]
+            all_master_rows.append(create_master_row(diff_id, row, '新規', detection_date))
         
         # 更新された物件を検出（共通の物件番号で内容が異なる）
-        # 参照元: 新ファイル（最新状態を参照、変更履歴はupdatesで確認）
         common_ids = old_ids & new_ids
         updated_count = 0
         
@@ -215,9 +230,9 @@ def main():
                     'fields': '/'.join([c['field'] for c in changes])
                 }
                 
-                # masterには新ファイルを参照元として記録
+                # masterには新データ（更新後）の情報を格納
                 all_master_rows.append(
-                    create_master_row(diff_id, property_id, '更新', detection_date, new_file, update_info)
+                    create_master_row(diff_id, new_row, '更新', detection_date, update_info)
                 )
                 
                 # updatesには変更詳細を格納
@@ -234,7 +249,7 @@ def main():
             writer.writerow(OUTPUT_MASTER_HEADERS)
             
             # 検出日、差分種別、物件番号でソート
-            all_master_rows.sort(key=lambda x: (x[3], x[2], x[1]))  # 差分検出日, 差分種別, 物件番号
+            all_master_rows.sort(key=lambda x: (x[22], x[21], x[2]))  # 差分検出日, 差分種別, 物件番号
             
             for row in all_master_rows:
                 writer.writerow(row)
@@ -266,8 +281,8 @@ def main():
         print("\n【日別サマリー】")
         date_summary = {}
         for row in all_master_rows:
-            date = row[3]  # 差分検出日
-            diff_type = row[2]  # 差分種別
+            date = row[22]  # 差分検出日
+            diff_type = row[21]  # 差分種別
             if date not in date_summary:
                 date_summary[date] = {'新規': 0, '削除': 0, '更新': 0}
             date_summary[date][diff_type] += 1
